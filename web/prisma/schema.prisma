@@ -1,0 +1,137 @@
+// SpaceProof purchase evidence.
+// Lengths are integer millimeters. Money is integer minor units (USD cents).
+// An authorization is a temporary hold, not escrow and not a completed payment.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  sku        String   @unique
+  /// Display name. The catalog calls this title; it is the product name.
+  title      String
+  widthMm    Int
+  depthMm    Int
+  heightMm   Int
+  priceMinor Int
+  currency   String
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  assessments FitAssessment[]
+  intents     PurchaseIntent[]
+}
+
+model RoomMeasurement {
+  id                            String   @id @default(cuid())
+  availableWidthMm              Int
+  availableDepthMm              Int
+  requiredHorizontalClearanceMm Int
+  requiredDepthClearanceMm      Int
+  budgetMinor                   Int
+  currency                      String
+  confirmedByUser               Boolean
+  version                       Int      @default(1)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  assessments FitAssessment[]
+}
+
+model FitAssessment {
+  id                   String          @id @default(cuid())
+  productId            String
+  product              Product         @relation(fields: [productId], references: [id])
+  roomMeasurementId    String
+  room                 RoomMeasurement @relation(fields: [roomMeasurementId], references: [id])
+  measurementVersion   Int
+  result               FitResult
+  reasons              Json
+  explanation          String
+  policyFingerprint    String
+  productWidthMm       Int
+  productDepthMm       Int
+  productHeightMm      Int
+  priceMinor           Int
+  currency             String
+  requiredWidthMm      Int?
+  requiredDepthMm      Int?
+  createdAt            DateTime        @default(now())
+
+  intents PurchaseIntent[]
+
+  @@index([productId])
+  @@index([roomMeasurementId])
+}
+
+model PurchaseIntent {
+  id                 String         @id @default(cuid())
+  productId          String
+  product            Product        @relation(fields: [productId], references: [id])
+  fitAssessmentId    String
+  assessment         FitAssessment  @relation(fields: [fitAssessmentId], references: [id])
+  approvedPriceMinor Int
+  currency           String
+  buyerConsentAt     DateTime?
+  policyFingerprint  String
+  status             IntentStatus
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  transaction        PaymentTransaction?
+
+  @@index([fitAssessmentId])
+  @@index([productId])
+}
+
+model PaymentTransaction {
+  id                    String         @id @default(cuid())
+  purchaseIntentId      String         @unique
+  intent                PurchaseIntent @relation(fields: [purchaseIntentId], references: [id])
+  paypalOrderId         String?        @unique
+  paypalAuthorizationId String?        @unique
+  paypalCaptureId       String?        @unique
+  providerStatus        String
+  ledgerStatus          LedgerStatus
+  amountMinor           Int
+  currency              String
+  createRequestId       String         @unique
+  authorizeRequestId    String         @unique
+  captureRequestId      String         @unique
+  voidRequestId         String         @unique
+  lastCheckedAt         DateTime       @default(now())
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+}
+
+enum FitResult {
+  FIT
+  DOES_NOT_FIT
+  UNCERTAIN
+}
+
+enum IntentStatus {
+  CONSENTED
+  ORDER_CREATED
+  AUTHORIZED
+  CAPTURED
+  VOIDED
+  CANCELED
+  FAILED
+}
+
+enum LedgerStatus {
+  PENDING
+  CREATED
+  AUTHORIZED
+  COMPLETED
+  VOIDED
+  CANCELED
+  FAILED
+}

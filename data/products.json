@@ -1,0 +1,24 @@
+{
+  "products": [
+    {
+      "sku": "DESK-NOOK-100",
+      "title": "Nook Desk",
+      "widthMm": 1000,
+      "depthMm": 550,
+      "heightMm": 740,
+      "priceMinor": 12900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-STUDIO-140",
+      "title": "Studio Desk",
+      "widthMm": 1400,
+      "depthMm": 700,
+      "heightMm": 750,
+      "priceMinor": 21900,
+      "currency": "USD",
+      "available": true
+    }
+  ]
+}

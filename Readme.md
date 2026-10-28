@@ -1,10 +1,12 @@
 # SpaceProof
 
-**See the space. Verify the fit. Pay with confidence.**
+**Verify before you pay.**
 
-> **Status: In development for the PayPal AI Hackathon (2026).** This README is the implementation specification and build checklist. Features, test results, transaction IDs, and demo links must not be described as completed until they are verified.
+> **Status: local prototype, verified October 28, 2026.** Geometry, versioned fit assessments, and the PayPal authorize / capture / void server flow are implemented. A live PayPal Sandbox buyer approval has not been observed, because this workspace has no sandbox credentials. The vision service does not measure photographs.
 
-SpaceProof is an AI-assisted spatial commerce application that helps people buying furniture for small spaces. It interprets a photo of a room, combines it with user-confirmed measurements, compares furniture against geometric and budget constraints, and enables a buyer-approved **PayPal Sandbox** purchase only after a server-side validation succeeds.
+SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
+
+SpaceProof does not guarantee that an object will physically fit. It checks the rectangular placement, clearance, budget, and catalog constraints it actually stored. It does not certify doorway, staircase, delivery, structural, or assembly clearance. It does not infer accurate dimensions from a photo.
 
 ## The problem
 
@@ -14,7 +16,7 @@ Online shoppers can judge a desk's appearance and price but still choose an item
 
 **Target user:** A person furnishing a small apartment or home office.
 
-**MVP scenario:** "Find a desk under $180 for this corner and preserve at least 80 cm of walking space."
+**MVP scenario:** Confirm a room, a clearance, and a budget, then accept only a desk the server marks `FIT`. The running demo defaults to 20 cm of side clearance and 20 cm of depth clearance so a 100 cm desk can pass in a 150 cm room. Clearance is an input, not a hidden assumption.
 
 SpaceProof is **not** a guarantee that an object will fit based on a single photo. The MVP requires measurements, uses user-correctable placement boundaries, and returns `UNCERTAIN` when the evidence is insufficient. It validates the simple placement and clearance constraints it actually models; it does not certify doorway, staircase, delivery, structural, or assembly clearance.
 
@@ -24,9 +26,7 @@ SpaceProof is **not** a guarantee that an object will fit based on a single phot
 - **Deterministic geometry:** Checks product dimensions against a calibrated placement area, required clearance, and measurement uncertainty. The LLM cannot override a failed check.
 - **PayPal:** Performs actual sandbox order creation, payer approval, authorization, capture, void, and reconciliation. The payment server refuses to capture if the approved SKU, price, assessment version, or user constraints have changed.
 
-**Design principle:** *AI proposes. Geometry verifies. The buyer approves. PayPal processes.*
-
-## End-to-end purchase flow
+**Design principle:** *AI proposes. Geometry verifies. The buyer approves. PayPal authorizes. SpaceProof revalidates. PayPal captures or voids.*
 
 ```mermaid
 flowchart TD
@@ -40,9 +40,9 @@ flowchart TD
     G -->|"No"| I["Void authorization"]
 ```
 
-The buyer approves PayPal **after** the initial fit check. Final validation handles changes or stale assessments after the approval step. An authorization is a temporary hold, **not escrow**. Sandbox currency is USD and no real money moves.
+The buyer approves PayPal **after** the initial fit check. The server authorizes that order, then revalidates before capture. An authorization is a temporary hold, **not escrow**, and it is not a completed payment. Sandbox currency is USD and no real money moves.
 
-For the earliest integration milestone, a basic buyer-approved Orders v2 `CAPTURE` flow may be used to prove connectivity. Replace it with the documented `AUTHORIZE` → `capture` / `void` flow before claiming the full conditional payment experience.
+Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v2 authorization endpoints. Immediate Orders v2 `CAPTURE` is not the purchase flow.
 
 ## MVP scope
 
@@ -51,15 +51,15 @@ For the earliest integration milestone, a basic buyer-approved Orders v2 `CAPTUR
 - [ ] Photo upload and editable placement-area selection.
 - [ ] At least one explicit scale/reference measurement and the other dimensions required by the fit calculation.
 - [ ] Vision-assisted scene/placement interpretation with structured output.
-- [ ] Deterministic geometry for **rectangular desk placement areas**.
-- [ ] Seed catalog of 12–20 demo-merchant desks with authoritative dimensions and prices.
-- [ ] Natural-language budget and clearance constraints.
-- [ ] `FIT`, `DOES_NOT_FIT`, and `UNCERTAIN` decisions with reasons and evidence.
-- [ ] Buyer review of exact SKU, price, and constraints before PayPal approval.
-- [ ] Real sandbox order approval, authorization, capture, and void paths.
-- [ ] PayPal status readback and verified, idempotent webhook processing.
-- [ ] Evidence-linked receipt and accessible responsive interface.
-- [ ] Automated geometry, payment-policy, and integration tests.
+- [x] Deterministic geometry for **rectangular desk placement areas**, using buyer-entered measurements.
+- [ ] Seed catalog of 12–20 demo desks. Two fictional desks are seeded.
+- [ ] Natural-language budget and clearance constraints. The form accepts numbers directly.
+- [x] `FIT`, `DOES_NOT_FIT`, and `UNCERTAIN` decisions with reasons and a policy fingerprint.
+- [x] Buyer review of the catalog SKU and price before PayPal approval. The PayPal button stays hidden until sandbox credentials are set.
+- [ ] Real sandbox order approval. Authorize, capture, and void are implemented and tested with mocks.
+- [ ] PayPal webhook verification.
+- [x] Responsive interface with a 2D footprint, loading, error, and payment states. A receipt is shown only after a verified capture.
+- [x] Automated geometry and payment-policy tests. PayPal is mocked.
 
 ### Explicitly out of scope
 
@@ -99,93 +99,59 @@ flowchart TD
 
 **Database hosting:** Supabase is **not required**. Supabase provides hosted PostgreSQL plus optional authentication, storage, and realtime features. SpaceProof initially needs ordinary PostgreSQL only. Use Docker PostgreSQL locally and a managed PostgreSQL provider such as Render for the hosted demo. Do not introduce Supabase Auth or Storage unless an actual requirement appears.
 
-### Proposed repository structure (Cursor should create it)
+### Repository layout
 
-```text
-spaceproof/
-├── README.md
-├── LICENSE                       # Add an OSI-approved open-source license
-├── .gitignore
-├── docker-compose.yml            # Local PostgreSQL
-├── web/                          # Next.js + TypeScript + Tailwind
-│   ├── src/app/
-│   ├── src/lib/geometry/
-│   ├── src/lib/paypal/
-│   ├── src/lib/policy/
-│   ├── src/lib/db/
-│   ├── prisma/schema.prisma
-│   └── .env.example
-├── vision/                       # FastAPI + OpenCV
-│   ├── app/main.py
-│   ├── app/pipeline/
-│   ├── requirements.txt
-│   └── .env.example
-├── data/                          # Clearly labeled demo catalog and licensed test images
-├── eval/                          # Labeled measurements and evaluation scripts
-└── docs/                          # Architecture, API contracts, test and demo instructions
-```
-
-This structure is planned and may be refined when the first implementation is scaffolded.
+`web/`, `vision/`, `data/`, `docker-compose.yml`, and `docs/` exist. `eval/` is still planned. The license is Apache-2.0. See `LICENSE`.
 
 ## Spatial verification contract
 
-The fit engine receives **server-trusted** product dimensions and **user-confirmed** room measurements. It does not use LLM-generated dimensions as ground truth.
-
-For each candidate desk, check at minimum:
+The fit engine in `web/src/lib/geometry/fit.ts` receives **server-trusted** product dimensions and **user-confirmed** room measurements. It does not use LLM-generated dimensions or browser prices.
 
 ```text
 required_width = product_width + required_horizontal_clearance
 required_depth = product_depth + required_depth_clearance
 
-FIT only if:
-  required_width <= conservative_available_width
-  AND required_depth <= conservative_available_depth
-  AND budget, item identity and stock constraints pass
-
-DOES_NOT_FIT if a reliable constraint is violated.
-UNCERTAIN if the measurement, scene boundary or catalog evidence is insufficient.
+FIT only if every required constraint passes.
+DOES_NOT_FIT if a reliable constraint fails.
+UNCERTAIN if a required measurement is missing, invalid, or unconfirmed.
 ```
 
-For measurements expressed as an interval, use the conservative lower bound to approve a fit. Product rotation is disabled in the initial MVP unless explicitly modeled. The engine must return structured reasons rather than just a confidence number.
+Lengths are integer millimeters. Money is integer cents. The desk is not rotated. `POST /api/assessments` returns the result, machine-readable reasons, a human explanation, the room version, and a policy fingerprint. A missing measurement is never treated as `FIT`.
 
-Example response shape (proposed, not yet implemented):
+The current demo uses two fictional desks:
 
-```json
-{
-  "productId": "DESK-003",
-  "sceneVersion": 4,
-  "assessment": "FIT",
-  "availableWidthCm": { "min": 137, "max": 141 },
-  "requiredWidthCm": 130,
-  "reasons": ["Required width is below the conservative available width"],
-  "requiresUserConfirmation": true
-}
-```
+| SKU | Size | Price |
+| --- | --- | --- |
+| `DESK-NOOK-100` | 100 cm wide, 55 cm deep | $129.00 |
+| `DESK-STUDIO-140` | 140 cm wide, 70 cm deep | $219.00 |
+
+Default room: 150 cm by 120 cm, 20 cm side clearance, 20 cm depth clearance, $180 budget. That makes the Nook desk `FIT` and the Studio desk `DOES_NOT_FIT`. A 100 cm room makes the Studio desk fail on width.
 
 ## Purchase and payment safety rules
 
 1. The LLM must not directly call PayPal or control the amount sent to PayPal.
 2. All money is represented as integer minor units, never JavaScript floating-point price arithmetic.
-3. Prices, currency, merchant identity, product IDs and stock are read from server-owned data.
-4. Create a payment intent tied to the buyer-approved product, amount, assessment version and policy fingerprint.
-5. Revalidate this exact intent before authorization settlement. On material change, refuse capture and void an existing uncaptured authorization where permitted.
-6. Use stable `PayPal-Request-Id` values for retried operations and prevent duplicate capture/void attempts.
-7. Verify webhook signatures, deduplicate events, and reconcile the transaction status directly with PayPal after ambiguous outcomes.
-8. Never label `PENDING`, `DENIED`, or an unverified client callback as `COMPLETED`.
-9. Keep PayPal client secrets and AI keys on the server. Do not commit `.env` files or sandbox test-buyer credentials.
-10. The hosted demo uses only sandbox funds and a demo merchant; disclose this clearly.
+3. Prices, currency, product IDs, and availability are read from server-owned data.
+4. A purchase intent stores the buyer-approved catalog amount, assessment, consent time, and policy fingerprint.
+5. The server revalidates that intent before capture. On a material change, it refuses capture and voids an uncaptured authorization when PayPal confirms the void.
+6. Create, authorize, capture, and void each use a stable `PayPal-Request-Id`.
+7. A capture is recorded as completed only after `GET /v2/payments/captures/{id}` matches the catalog amount. Pending, denied, canceled, and unverified results are not completed payments.
+8. Webhook signature verification is not implemented yet.
+9. PayPal client secrets stay on the server. Do not commit `.env` files.
+10. The demo uses sandbox funds only. An authorization is not escrow.
 
-### PayPal endpoints to implement
+### PayPal endpoints
 
-| Purpose | REST operation |
-| --- | --- |
-| Create order | `POST /v2/checkout/orders` with `intent: AUTHORIZE` |
-| Authorize approved order | `POST /v2/checkout/orders/{order_id}/authorize` |
-| Capture authorization | `POST /v2/payments/authorizations/{authorization_id}/capture` |
-| Void authorization | `POST /v2/payments/authorizations/{authorization_id}/void` |
-| Read back order | `GET /v2/checkout/orders/{order_id}` |
-| Read back capture | `GET /v2/payments/captures/{capture_id}` |
-| Verify webhook | `POST /v1/notifications/verify-webhook-signature` |
+| Purpose | REST operation | In this prototype |
+| --- | --- | --- |
+| Create order | `POST /v2/checkout/orders` with `intent: AUTHORIZE` | Implemented |
+| Authorize approved order | `POST /v2/checkout/orders/{order_id}/authorize` | Implemented |
+| Capture authorization | `POST /v2/payments/authorizations/{authorization_id}/capture` | Implemented |
+| Void authorization | `POST /v2/payments/authorizations/{authorization_id}/void` | Implemented. A 204 response is verified with a follow-up read. |
+| Read back order | `GET /v2/checkout/orders/{order_id}` | Implemented |
+| Read back authorization | `GET /v2/payments/authorizations/{authorization_id}` | Implemented |
+| Read back capture | `GET /v2/payments/captures/{capture_id}` | Implemented |
+| Verify webhook | `POST /v1/notifications/verify-webhook-signature` | Not implemented |
 
 Sandbox API base: `https://api-m.sandbox.paypal.com`.
 
@@ -196,31 +162,32 @@ Official guides:
 - [Void authorization](https://developer.paypal.com/checkout/void-authorized-payment/)
 - [PayPal webhooks](https://developer.paypal.com/api/rest/webhooks/)
 
-## Data model (proposed)
+## Data model
+
+Implemented in `web/prisma/schema.prisma` and migration `web/prisma/migrations/20261028180206_init`:
 
 | Entity | Important fields |
 | --- | --- |
-| `Product` | `id`, `sku`, `title`, `widthMm`, `depthMm`, `heightMm`, `priceMinor`, `currency`, `stock` |
-| `RoomScene` | `id`, `imageRef`, `version`, `placementPolygon`, `createdAt` |
-| `Measurement` | `sceneId`, `referenceType`, `widthMinMm`, `widthMaxMm`, `depthMinMm`, `depthMaxMm`, `confirmedByUser` |
-| `FitAssessment` | `id`, `sceneVersion`, `productId`, `result`, `reasons`, `evidenceDigest` |
-| `PurchaseIntent` | `id`, `assessmentId`, `productId`, `priceMinor`, `currency`, `consentAt`, `policyDigest`, `state` |
-| `PaymentTransaction` | `intentId`, `paypalOrderId`, `authorizationId`, `captureId`, `providerStatus`, `lastCheckedAt` |
-| `WebhookEvent` | `paypalEventId`, `eventType`, `verifiedAt`, `processedAt` |
+| `Product` | `id`, `sku`, `title`, `widthMm`, `depthMm`, `heightMm`, `priceMinor`, `currency`, `available` |
+| `RoomMeasurement` | width, depth, side clearance, depth clearance, budget, confirmation, `version` |
+| `FitAssessment` | product, room, `measurementVersion`, result, reasons, explanation, `policyFingerprint` |
+| `PurchaseIntent` | assessment, `approvedPriceMinor`, `buyerConsentAt`, `policyFingerprint`, status |
+| `PaymentTransaction` | PayPal order, authorization, and capture IDs, provider status, ledger status, request IDs |
 
-Enforce unique identifiers on PayPal provider resources and webhook events to support safe retries and deduplication.
+`WebhookEvent` and photo scenes are not stored yet. PayPal order, authorization, and capture IDs are unique.
 
-## Local development (instructions to complete during scaffolding)
+## Local development
+
+These commands were run on Windows 11 with Node.js 25.2.1, npm 11.6.2, Python 3.11.9, and Docker Desktop. `python` is not on PATH; use the `py` launcher or the virtualenv interpreter.
 
 Prerequisites:
 
-- Node.js compatible with the selected Next.js release, npm
-- Python 3.11+ and pip
-- Docker / Docker Compose, or a locally running PostgreSQL instance
-- PayPal Developer Sandbox app and separate sandbox buyer / business accounts
-- An AI model provider key if required by the chosen vision-language model
+- Node.js and npm
+- Python 3.11+ (`py -3.11` on this machine)
+- Docker Desktop, with the engine running
+- A PayPal Developer sandbox app if you want to approve a real sandbox payment
 
-Cursor should create `.env.example` files with variable **names only**, not real secrets. The web server will require approximately:
+Copy `web/.env.example` to `web/.env`. The database URL in the example matches `docker-compose.yml`. Fill the PayPal values from the sandbox app. Leave secrets out of git.
 
 ```dotenv
 DATABASE_URL=postgresql://spaceproof:local_dev_password@localhost:5432/spaceproof?schema=public
@@ -233,49 +200,59 @@ VISION_SERVICE_URL=http://localhost:8000
 AI_PROVIDER_API_KEY=
 ```
 
-`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client identifier; **never** expose `PAYPAL_CLIENT_SECRET` or API keys through `NEXT_PUBLIC_` variables.
+`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client id. It must be the same app as `PAYPAL_CLIENT_ID`. Never put `PAYPAL_CLIENT_SECRET` in a `NEXT_PUBLIC_` variable.
 
-After Cursor has generated `docker-compose.yml`, the Next.js and FastAPI applications, and migration scripts, document verified commands here. Intended workflow:
+Verified on October 28, 2026:
 
-```bash
+```powershell
+# From the repository root. Docker Desktop must be running.
 docker compose up -d postgres
 
-# Terminal 1: Python vision service
-cd vision
-python -m venv .venv
-# Activate .venv using the command appropriate for your OS
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Terminal 2: Next.js
+# Web app
 cd web
 npm install
 npx prisma migrate dev
+npm run db:seed
+npm test
 npm run dev
+
+# Vision service, from the repository root, in another terminal
+cd vision
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m pytest
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-> These commands are **planned setup instructions**, not yet verified against a completed repository. Update them after the first successful local run. Include Windows-specific activation notes if targeting judges on Windows.
+`npx prisma migrate dev` created and applied `20261028180206_init` against PostgreSQL 16. `npm run db:seed` loaded `DESK-NOOK-100` and `DESK-STUDIO-140`. `npm test` passed 31 tests. Vision `pytest` passed 4 tests. `npx next build` compiled successfully. The vision health check returned OpenCV 5.0.0 and `"image_measurement": false`.
+
+`node_modules` and `vision/.venv` were already present, so `npm install` and `py -3.11 -m venv .venv` were not repeated. `pip install -r requirements.txt` was run and installed FastAPI, Uvicorn, OpenCV, and pytest. A fresh clone should still run the full command list above.
+
+Open `http://localhost:3000`. The 100 cm room button plus the Studio desk shows `DOES NOT FIT` and leaves checkout closed. The 150 cm room button plus the Nook desk shows `FIT`. Without sandbox credentials, the page explains that PayPal is not configured and does not show a successful payment.
 
 ## Acceptance tests
 
-### Geometry and AI
+### Geometry
 
-- [ ] A desk wider than the usable placement area is rejected.
-- [ ] A desk that violates a required walkway clearance is rejected.
-- [ ] A desk satisfying all measured constraints is accepted.
-- [ ] Missing scale/reference information yields `UNCERTAIN`, not `FIT`.
-- [ ] A vision/LLM failure cannot force a purchase-eligible outcome.
-- [ ] LLM-generated price or product identifiers cannot override catalog records.
+- [x] A desk wider than the room is rejected. Verified by unit test and by `POST /api/assessments` for a 140 cm desk in a 100 cm room.
+- [x] A clearance violation is rejected.
+- [x] A desk that satisfies the measured constraints is accepted. Verified for the 100 cm Nook desk in a 150 cm room.
+- [x] Missing, invalid, or unconfirmed measurements return `UNCERTAIN`, not `FIT`.
+- [x] A client-supplied price or fit result cannot override the catalog. Photo measurement is not an input.
+- [ ] A vision or LLM failure path is not wired into checkout yet. `POST /vision/measure` returns HTTP 501 and does not invent dimensions.
 
 ### PayPal
 
-- [ ] Incompatible and uncertain decisions cause **zero** order creation requests.
-- [ ] An eligible decision creates a real sandbox order and prompts buyer approval.
-- [ ] Correct authorization ID is stored after approval.
-- [ ] Matching, fresh intent captures only once; the resulting status is verified with PayPal.
-- [ ] Changed SKU, amount, or assessment blocks capture; uncaptured authorization is voided where applicable.
-- [ ] Canceled, failed, pending, and duplicate operations are handled correctly.
-- [ ] Replayed or invalid-signature webhooks do not change the payment ledger.
+Automated tests mock PayPal. They do not prove a live sandbox payment.
+
+- [x] `DOES_NOT_FIT` and `UNCERTAIN` do not call order creation. A live `POST /api/paypal/orders` for a failed assessment returned HTTP 403 `NOT_ELIGIBLE`.
+- [x] A forged client price stays at the catalog amount in the mocked create call. A forged SKU is rejected.
+- [x] A changed room version blocks checkout. After `PATCH /api/rooms/{id}` moved a room from version 1 to version 2, order creation returned HTTP 403 `STALE_ASSESSMENT`.
+- [x] Mocked tests cover authorization without capture, a single capture, a duplicate capture that does not call PayPal again, void of an uncaptured authorization, and canceled or declined results that are not completed.
+- [ ] An eligible decision has not created a real sandbox order in this workspace. Credentials are empty, and the API returns HTTP 503 `PAYPAL_NOT_CONFIGURED` instead of a fake success.
+- [ ] Authorization and capture IDs from PayPal Sandbox have not been observed.
+- [ ] Webhooks are not implemented.
 
 ## Evaluation plan
 
@@ -294,14 +271,16 @@ Provide labeled cases and a reproducible runner under `eval/`. **Do not invent a
 
 ### Milestone 1: October 28–29, feasibility
 
-- [ ] Scaffold the monorepo and local PostgreSQL.
-- [ ] Implement a deterministic fit checker for one rectangular space and two desks.
-- [ ] Complete an actual PayPal Sandbox buyer-approved order and verified capture.
-- [ ] Block order creation for a failed fit assessment.
+- [x] Scaffold the monorepo and local PostgreSQL. Migration `20261028180206_init` applied and both desks seeded.
+- [x] Deterministic fit checker for one rectangular space and two desks.
+- [ ] Actual PayPal Sandbox buyer approval and verified capture. The code path exists; sandbox credentials were empty, so no live order was created.
+- [x] Block order creation for a failed fit assessment. Verified with HTTP 403 `NOT_ELIGIBLE`.
 
-**Exit gate:** One fit → payment case and one no-fit → no-payment case run locally with actual sandbox evidence.
+**Exit gate still open:** one live fit → sandbox payment case has not been observed.
 
 ### Milestone 2: October 30–November 3, spatial product
+
+This is the next milestone. Do not start it until a live sandbox authorization can be configured, or continue it in parallel only after that credential check is explicit.
 
 - [ ] Room photo upload, reference measurements, user-correctable placement area.
 - [ ] Vision model integration and structured output validation.
@@ -309,23 +288,25 @@ Provide labeled cases and a reproducible runner under `eval/`. **Do not invent a
 
 ### Milestone 3: November 4–7, payment lifecycle
 
-- [ ] `AUTHORIZE` → `capture` / `void` and buyer approval flow.
-- [ ] Immutable purchase intent, idempotency, webhook verification, PayPal status readback.
-- [ ] Integration tests covering success and failures.
+The authorize, capture, and void code is in the app and covered by mocked tests. These items are not fully done:
+
+- [ ] Live buyer approval against PayPal Sandbox.
+- [x] Purchase intent, idempotency keys, and PayPal read-back in code. Webhook verification is not implemented.
+- [x] Mocked tests for success, decline, cancel, duplicate capture, stale assessment, and void. Not a live sandbox integration test.
 
 ### Milestone 4: November 8–10, proof and polish
 
 - [ ] Evaluation cases and repeatable metrics.
-- [ ] Responsive placement preview, loading states, clear explanations, accessible UI.
-- [ ] Hosted demo using sandbox credentials and safe test access.
+- [x] Responsive 2D placement preview, loading and error states, and explanations for fit and payment status. A capture receipt appears only after the server verifies a capture.
+- [ ] Hosted demo using sandbox credentials.
 
 ### Milestone 5: November 11–12, submission
 
-- [ ] Public open-source GitHub repository with detectable top-level `LICENSE`.
-- [ ] Real, verified setup instructions and test commands in this README.
-- [ ] Public hosted demonstration or complete runnable instructions.
-- [ ] Under-three-minute public YouTube video showing the application functioning.
-- [ ] Devpost project description, architecture, tools, limitations and measured results.
+- [x] Apache-2.0 `LICENSE` is already at the repository root.
+- [x] Setup and test commands in this README were run locally on October 28, 2026.
+- [ ] Public hosted demonstration.
+- [ ] Under-three-minute public YouTube video.
+- [ ] Devpost project description.
 
 **Submission deadline:** November 12, 2026, 3:00 PM EST (12:00 PM PST). The demo should remain free and available throughout judging, which ends December 15, 2026.
 
@@ -344,12 +325,12 @@ Provide labeled cases and a reproducible runner under `eval/`. **Do not invent a
 
 - **Live demo:** Not deployed yet
 - **Demo video:** Not recorded yet
-- **Source:** Add the public GitHub repository URL
-- **PayPal integration:** Sandbox only
+- **Source:** https://github.com/Mukesh-SCS/SpaceProof
+- **PayPal integration:** Sandbox code only. No sandbox transaction has been verified.
 
 ## License and attribution
 
-Add a top-level `LICENSE` before submitting (MIT is a reasonable choice if all included code and assets permit it). Record model, dataset, image and library licenses in `docs/ATTRIBUTION.md`. Use original or appropriately licensed images in the demo; do not include unlicensed third-party trademarks or copyrighted material.
+This project is licensed under the Apache License 2.0. The full text is in the top-level `LICENSE` file. Record model, dataset, image, and library licenses in `docs/ATTRIBUTION.md`. Use original or appropriately licensed images in the demo; do not include unlicensed third-party trademarks or copyrighted material.
 
 ## References
 

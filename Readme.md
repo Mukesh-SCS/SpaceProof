@@ -2,7 +2,7 @@
 
 **Verify before you pay.**
 
-> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. A sandbox order was created and read back. Buyer approval, capture, and void have not been observed, because that step needs a sandbox buyer login. The vision service does not measure photographs.
+> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. Two sandbox orders were created and read back as `CREATED`. Buyer approval, capture, and void have not been observed, because that step needs a sandbox buyer login. The vision service does not measure photographs.
 
 SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
 
@@ -254,11 +254,11 @@ Open `http://localhost:3000`. Confirm the measurements, choose the 100 cm room, 
 Automated tests mock PayPal. They do not prove a live sandbox payment.
 
 - [x] `DOES_NOT_FIT` and `UNCERTAIN` do not call order creation. A live `POST /api/paypal/orders` for a failed assessment returned HTTP 403 `NOT_ELIGIBLE`.
-- [x] A forged client price stays at the catalog amount. PayPal read order `4JY697996K476130H` as `USD 129.00` for `DESK-NOOK-100` after the client claimed 100 cents. A forged SKU returned HTTP 403 `SKU_MISMATCH` and created no order.
+- [x] A forged client price stays at the catalog amount. PayPal read orders `4JY697996K476130H` and `4T750388D0073720Y` as `USD 129.00` for `DESK-NOOK-100` after the client claimed 100 cents. A forged SKU returned HTTP 403 `SKU_MISMATCH` and created no order.
 - [x] A changed room version blocks checkout. After `PATCH /api/rooms/{id}` moved a room from version 1 to version 2, order creation returned HTTP 403 `STALE_ASSESSMENT`.
 - [x] Mocked tests cover authorization without capture, a single capture, a duplicate capture that does not call PayPal again, void of an uncaptured authorization, and canceled or declined results that are not completed.
-- [x] A `FIT` assessment created sandbox order `4JY697996K476130H` with intent `AUTHORIZE` and status `CREATED`.
-- [ ] Buyer approval has not happened. Authorizing that order returned HTTP 409 `NOT_APPROVED`. Capture was refused locally with `NOT_AUTHORIZED` and was not sent to PayPal. No authorization id, capture id, or void has been observed.
+- [x] Two `FIT` assessments created sandbox orders `4JY697996K476130H` and `4T750388D0073720Y`. Both were read back with intent `AUTHORIZE`, status `CREATED`, and amount `USD 129.00`.
+- [ ] Buyer approval has not happened. Authorizing `4T750388D0073720Y` before approval returned HTTP 409 `NOT_APPROVED`. Two capture attempts returned HTTP 409 `NOT_AUTHORIZED` and were not sent to PayPal. No authorization id, capture id, or void has been observed.
 - [ ] Webhooks are not implemented.
 
 ## Evaluation
@@ -266,6 +266,8 @@ Automated tests mock PayPal. They do not prove a live sandbox payment.
 `eval/images/` has ten original synthetic room diagrams from `vision/scripts/make_eval_images.py`. They are not photographs of measured rooms. `vision/scripts/run_eval.py` calls Nebius and writes `eval/results.json`.
 
 On October 28, 2026, model `nvidia/Nemotron-3.5-Super-VL` returned a placement box for nine diagrams and no box for `room-03-plant`. Where a box existed, overlap with the painted open floor was 0.00, 0.33, 0.34, 0.36, 0.40, 0.43, 0.52, 0.56, and 0.64. Every accepted response had `dimensions_mm: null`. Buyer correction and a purchase decision were not recorded for these files. That overlap is not a physical-fit accuracy score.
+
+A later single-image call on `eval/images/room-01-corner.jpg` succeeded in 3278 ms. PayPal was not involved. Reported usage was 935 prompt tokens, 1075 completion tokens, of which 779 were reasoning tokens, and 2010 total tokens. `dimensions_mm` stayed null. The redacted record is `eval/evidence/nebius-room-01-corner-20261028T195945Z.json`.
 
 Still not measured: calibration error against a real room, false `FIT` rate on photographed apartments, and a completed sandbox capture.
 
@@ -275,7 +277,7 @@ Still not measured: calibration error against a real room, false `FIT` rate on p
 
 - [x] Scaffold the monorepo and local PostgreSQL. Migration `20261028180206_init` applied and both desks seeded.
 - [x] Deterministic fit checker for one rectangular space and two desks.
-- [ ] Actual PayPal Sandbox buyer approval and verified capture. Order `4JY697996K476130H` was created. The buyer has not approved it.
+- [ ] Actual PayPal Sandbox buyer approval and verified capture. Orders `4JY697996K476130H` and `4T750388D0073720Y` are still `CREATED`. The buyer has not approved either one.
 - [x] Block order creation for a failed fit assessment. Verified with HTTP 403 `NOT_ELIGIBLE`.
 
 **Exit gate still open:** one live fit → buyer approval → verified capture has not been observed.
@@ -327,7 +329,7 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 - **Live demo:** Not deployed yet
 - **Demo video:** Not recorded yet
 - **Source:** https://github.com/Mukesh-SCS/SpaceProof
-- **PayPal integration:** Sandbox order `4JY697996K476130H` was created and read back as authorized-intent, not captured. Buyer approval, capture, and void are still pending.
+- **PayPal integration:** Sandbox orders `4JY697996K476130H` and `4T750388D0073720Y` were created and read back as authorize-intent, status `CREATED`, amount `USD 129.00`. Buyer approval, capture, and void are still pending.
 
 ## License and attribution
 

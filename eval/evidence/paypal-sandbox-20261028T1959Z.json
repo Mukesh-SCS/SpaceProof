@@ -1,0 +1,98 @@
+{
+  "observed_at": "2026-10-28T19:59:00Z",
+  "environment": "sandbox",
+  "api_base": "https://api-m.sandbox.paypal.com",
+  "oauth": {
+    "http": 200,
+    "token_type": "Bearer",
+    "app_id": "APP-5LW178562X8882401"
+  },
+  "live_regressions_without_buyer_approval": {
+    "does_not_fit": {
+      "sku": "DESK-STUDIO-140",
+      "room_width_mm": 1000,
+      "result": "DOES_NOT_FIT",
+      "reasons": ["WIDTH_EXCEEDS_ROOM"],
+      "assessment_id": "cmvsjd7s9000tv04oknmbl9sh",
+      "order_http": 403,
+      "order_code": "NOT_ELIGIBLE"
+    },
+    "uncertain": {
+      "sku": "DESK-NOOK-100",
+      "result": "UNCERTAIN",
+      "reasons": ["MEASUREMENT_UNCONFIRMED"],
+      "order_http": 403,
+      "order_code": "NOT_ELIGIBLE"
+    },
+    "forged_sku": {
+      "http": 403,
+      "code": "SKU_MISMATCH",
+      "paypal_order_id": null
+    },
+    "stale_assessment": {
+      "from_version": 1,
+      "to_version": 2,
+      "order_http": 403,
+      "code": "STALE_ASSESSMENT"
+    },
+    "forged_price_on_fit": {
+      "client_claimed_price_minor": 100,
+      "client_claimed_result": "DOES_NOT_FIT",
+      "assessment_id": "cmvsjdo2f0012v04obg2z3blm",
+      "order_http": 200,
+      "paypal_order_id": "4T750388D0073720Y",
+      "app_amount_minor": 12900,
+      "provider_read": {
+        "http": 200,
+        "status": "CREATED",
+        "intent": "AUTHORIZE",
+        "amount": "129.00",
+        "currency_code": "USD",
+        "reference_id": "DESK-NOOK-100"
+      },
+      "authorize_before_buyer_approval": {
+        "http": 409,
+        "code": "NOT_APPROVED",
+        "completed": false
+      },
+      "capture_before_authorization": {
+        "http": 409,
+        "code": "NOT_AUTHORIZED",
+        "completed": false,
+        "second_attempt_same_code": true
+      }
+    },
+    "earlier_order_still_unapproved": {
+      "paypal_order_id": "4JY697996K476130H",
+      "provider_read": {
+        "http": 200,
+        "status": "CREATED",
+        "intent": "AUTHORIZE",
+        "amount": "129.00",
+        "currency_code": "USD",
+        "reference_id": "DESK-NOOK-100"
+      }
+    }
+  },
+  "ui_ready_for_buyer": {
+    "url": "http://localhost:3000/",
+    "sku": "DESK-NOOK-100",
+    "result": "FIT",
+    "assessment_id": "cmvsjemy3001bv04oxt01ks01",
+    "room_version": 1,
+    "catalog_price": "129.00",
+    "paypal_sdk": "intent=authorize",
+    "note": "The PayPal button is rendered. The buyer has not approved it in this session."
+  },
+  "not_observed": [
+    "Buyer approval in the PayPal sandbox",
+    "A provider authorization id",
+    "A provider capture id",
+    "A provider void of an uncaptured authorization"
+  ],
+  "mocked_only": [
+    "Duplicate capture after a completed capture",
+    "Void after a real authorization",
+    "Cancelled approval recorded as not completed"
+  ]
+}

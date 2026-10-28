@@ -64,6 +64,8 @@ def main() -> int:
     body["prepared_image_pixels"] = {"width": width, "height": height}
     record["request_succeeded"] = True
     record["validated"] = True
+    record["latency_ms"] = client.last_latency_ms
+    record["token_usage"] = client.last_usage
     record["analysis"] = body
     path = evidence_dir / f"nebius-{image_arg.stem}-{stamp}.json"
     _write(path, record, settings.api_key)

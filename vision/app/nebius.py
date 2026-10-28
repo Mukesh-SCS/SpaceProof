@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import time
 from typing import Protocol
 
 from openai import OpenAI
@@ -108,9 +109,12 @@ class NebiusVisionClient:
             raise NebiusConfigError(missing)
         self.model_id = settings.model_id
         self._secret = settings.api_key
+        self.last_latency_ms: int | None = None
+        self.last_usage: dict[str, int | None] | None = None
         self._client = OpenAI(base_url=f"{settings.base_url}/", api_key=settings.api_key)
 
     def complete(self, messages: list[dict[str, object]], max_tokens: int) -> str:
+        started = time.perf_counter()
         try:
             response = self._client.chat.completions.create(
                 model=self.model_id,
@@ -121,6 +125,17 @@ class NebiusVisionClient:
             )
         except Exception as exc:
             raise NebiusError(public_provider_error(exc, self._secret), getattr(exc, "status_code", None)) from exc
+        self.last_latency_ms = round((time.perf_counter() - started) * 1000)
+        usage = getattr(response, "usage", None)
+        self.last_usage = None
+        if usage is not None:
+            details = getattr(usage, "completion_tokens_details", None)
+            self.last_usage = {
+                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                "completion_tokens": getattr(usage, "completion_tokens", None),
+                "total_tokens": getattr(usage, "total_tokens", None),
+                "reasoning_tokens": getattr(details, "reasoning_tokens", None) if details is not None else None,
+            }
         choice = response.choices[0]
         content = choice.message.content
         if isinstance(content, list):

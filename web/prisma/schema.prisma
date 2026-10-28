@@ -38,6 +38,13 @@ model RoomMeasurement {
   budgetMinor                   Int
   currency                      String
   confirmedByUser               Boolean
+  /// Visual proposal only. These fractions are not room measurements.
+  placementMinX                 Float?
+  placementMinY                 Float?
+  placementMaxX                 Float?
+  placementMaxY                 Float?
+  placementLabel                String?
+  placementSource               String?
   version                       Int      @default(1)
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt

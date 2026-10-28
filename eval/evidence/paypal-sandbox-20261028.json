@@ -1,0 +1,80 @@
+{
+  "observed_at": "2026-10-28T19:12:00Z",
+  "environment": "sandbox",
+  "api_base": "https://api-m.sandbox.paypal.com",
+  "oauth": {
+    "http": 200,
+    "token_type": "Bearer",
+    "app_id": "APP-5LW178562X8882401",
+    "public_client_matches_server_client": true
+  },
+  "connectivity_probe_outside_checkout_policy": {
+    "note": "This order was created with the sandbox REST API to prove credentials. It was not created by a fit assessment.",
+    "order_id": "1VD59679XG728392G",
+    "create_http": 201,
+    "status": "CREATED",
+    "intent": "AUTHORIZE",
+    "authorize_before_buyer_approval": {
+      "http": 422,
+      "name": "UNPROCESSABLE_ENTITY",
+      "issue": "ORDER_NOT_APPROVED",
+      "debug_id": "f30391501323b"
+    }
+  },
+  "application_flow": {
+    "incompatible_studio_desk": {
+      "room_width_mm": 1000,
+      "result": "DOES_NOT_FIT",
+      "reasons": ["WIDTH_EXCEEDS_ROOM"],
+      "assessment_id": "cmvshnejf0002v0awmhwyug7s",
+      "order_http": 403,
+      "order_code": "NOT_ELIGIBLE",
+      "paypal_order_id": null
+    },
+    "forged_sku_on_fit_assessment": {
+      "http": 403,
+      "code": "SKU_MISMATCH",
+      "paypal_order_id": null
+    },
+    "stale_assessment_after_room_patch": {
+      "from_version": 1,
+      "to_version": 2,
+      "order_http": 403,
+      "code": "STALE_ASSESSMENT"
+    },
+    "compatible_nook_desk": {
+      "result": "FIT",
+      "catalog_price_minor": 12900,
+      "client_claimed_price_minor": 100,
+      "client_claimed_result": "DOES_NOT_FIT",
+      "assessment_id": "cmvshnre00008v0aw7nqxyl5u",
+      "order_http": 200,
+      "paypal_order_id": "4JY697996K476130H",
+      "provider_read": {
+        "http": 200,
+        "status": "CREATED",
+        "intent": "AUTHORIZE",
+        "amount": "129.00",
+        "currency_code": "USD",
+        "reference_id": "DESK-NOOK-100"
+      },
+      "authorize_before_buyer_approval": {
+        "http": 409,
+        "code": "NOT_APPROVED",
+        "completed": false
+      },
+      "capture_before_authorization": {
+        "http": 409,
+        "code": "NOT_AUTHORIZED",
+        "completed": false,
+        "second_attempt_same_code": true
+      }
+    }
+  },
+  "not_observed": [
+    "Buyer approval in the PayPal sandbox",
+    "A provider authorization id",
+    "A provider capture id",
+    "A provider void of an uncaptured authorization"
+  ]
+}

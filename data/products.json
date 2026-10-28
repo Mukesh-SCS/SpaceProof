@@ -1,6 +1,46 @@
 {
   "products": [
     {
+      "sku": "DESK-MINI-70",
+      "title": "Mini Desk",
+      "widthMm": 700,
+      "depthMm": 450,
+      "heightMm": 720,
+      "priceMinor": 7900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-SLIM-80",
+      "title": "Slim Desk",
+      "widthMm": 800,
+      "depthMm": 500,
+      "heightMm": 730,
+      "priceMinor": 9900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-CORNER-90",
+      "title": "Corner Desk",
+      "widthMm": 900,
+      "depthMm": 900,
+      "heightMm": 750,
+      "priceMinor": 14900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-ALCOVE-95",
+      "title": "Alcove Desk",
+      "widthMm": 950,
+      "depthMm": 480,
+      "heightMm": 740,
+      "priceMinor": 11900,
+      "currency": "USD",
+      "available": true
+    },
+    {
       "sku": "DESK-NOOK-100",
       "title": "Nook Desk",
       "widthMm": 1000,
@@ -11,12 +51,72 @@
       "available": true
     },
     {
+      "sku": "DESK-SHELF-105",
+      "title": "Shelf Desk",
+      "widthMm": 1050,
+      "depthMm": 550,
+      "heightMm": 1100,
+      "priceMinor": 16900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-COMPACT-110",
+      "title": "Compact Desk",
+      "widthMm": 1100,
+      "depthMm": 600,
+      "heightMm": 740,
+      "priceMinor": 15900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-WRITING-120",
+      "title": "Writing Desk",
+      "widthMm": 1200,
+      "depthMm": 500,
+      "heightMm": 720,
+      "priceMinor": 13900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-LOFT-130",
+      "title": "Loft Desk",
+      "widthMm": 1300,
+      "depthMm": 650,
+      "heightMm": 760,
+      "priceMinor": 17900,
+      "currency": "USD",
+      "available": true
+    },
+    {
       "sku": "DESK-STUDIO-140",
       "title": "Studio Desk",
       "widthMm": 1400,
       "depthMm": 700,
       "heightMm": 750,
       "priceMinor": 21900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-EXEC-150",
+      "title": "Executive Desk",
+      "widthMm": 1500,
+      "depthMm": 800,
+      "heightMm": 760,
+      "priceMinor": 28900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "DESK-WIDE-160",
+      "title": "Wide Desk",
+      "widthMm": 1600,
+      "depthMm": 750,
+      "heightMm": 760,
+      "priceMinor": 24900,
       "currency": "USD",
       "available": true
     }

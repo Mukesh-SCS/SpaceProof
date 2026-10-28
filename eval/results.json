@@ -1,0 +1,324 @@
+{
+  "observed_at": "2026-10-28T19:09:23Z",
+  "provider": "Nebius Token Factory",
+  "base_host": "api.tokenfactory.us-north1.nebius.com",
+  "model_id": "nvidia/Nemotron-3.5-Super-VL",
+  "image_kind": "original synthetic room diagrams",
+  "note": "IoU compares the model box with the open floor painted by vision/scripts/make_eval_images.py. It is not a physical-fit accuracy score. User correction and purchase validity were not observed for these files.",
+  "scenes": [
+    {
+      "id": "room-01-corner",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.42,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.3
+      },
+      "iou_with_scripted_floor": 0.3403,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "This is a stylized or abstract image, not a calibrated photograph, so physical fit cannot be verified.",
+        "The nature of the surfaces and objects is inferred from color and layout, not confirmed.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-02-window",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.3,
+          0.42,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.3
+      },
+      "iou_with_scripted_floor": 0.5172,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "This appears to be an abstract or schematic image rather than a photograph of a physical room, so desk fit cannot be verified.",
+        "The nature of the surfaces (floor versus wall) is unclear from the image alone.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-03-plant",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": null,
+      "iou_with_scripted_floor": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image appears abstract or schematic rather than a clear photograph of a room, so usable floor area, scale, and desk fit cannot be determined from this view alone.",
+        "No placement region was proposed. Draw the desk area yourself.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-04-narrow",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.41,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.4
+      },
+      "iou_with_scripted_floor": 0.3559,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image is highly abstract and lacks clear room boundaries, scale, or existing furniture.",
+        "A single uncalibrated photograph cannot prove that a desk will fit in the identified area.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-05-alcove",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.25,
+          0.45,
+          1.0,
+          0.95
+        ],
+        "confidence": 0.4
+      },
+      "iou_with_scripted_floor": 0.56,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image is highly abstract and lacks clear furniture, doors, or room boundaries.",
+        "A single uncalibrated photograph cannot prove that furniture fits.",
+        "The function of the white rectangle and green block is unclear.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-06-shelf",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.41,
+          0.77,
+          1.0
+        ],
+        "confidence": 0.6
+      },
+      "iou_with_scripted_floor": 0.4345,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image is abstract and lacks scale, so physical fit cannot be verified.",
+        "A single uncalibrated photograph cannot prove that a desk will fit.",
+        "The function and exact dimensions of the green object are unknown.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-07-bright",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area along wall left",
+        "bbox_normalized": [
+          0.0,
+          0.42,
+          0.29,
+          0.7
+        ],
+        "confidence": 0.5
+      },
+      "iou_with_scripted_floor": 0.0,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "This appears to be a simplified or abstract representation, not a photograph of a furnished room, so actual scale and usability cannot be verified.",
+        "No furniture or reference objects are visible to establish physical dimensions.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-08-side",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.41,
+          0.84,
+          1.0
+        ],
+        "confidence": 0.5
+      },
+      "iou_with_scripted_floor": 0.3983,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image appears to be an abstract diagram rather than a photograph of a physical room, so actual scale and proportions cannot be verified",
+        "No reference objects are present to establish real-world dimensions",
+        "A single uncalibrated image cannot prove that a desk will fit in the identified area",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-09-low",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.4,
+          0.45,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.3
+      },
+      "iou_with_scripted_floor": 0.6364,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "The image is highly abstract and uncalibrated; physical dimensions cannot be determined.",
+        "It is unclear if the lower section is a usable room floor or a surface with unknown properties.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    },
+    {
+      "id": "room-10-emptyish",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "ai_proposed_placement": {
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.4,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.4
+      },
+      "iou_with_scripted_floor": 0.329,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "error": null,
+      "warnings": [
+        "This is a schematic or abstract image, not a calibrated photograph; physical dimensions cannot be verified.",
+        "The white rectangle and dark green object are unidentified and may obstruct placement.",
+        "These regions are visual suggestions. Confirm the available width and depth yourself."
+      ],
+      "dimensions_mm": null
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "observed_at": "20261028T190354Z",
+  "provider": "Nebius Token Factory",
+  "base_host": "api.tokenfactory.us-north1.nebius.com",
+  "model_id": "nvidia/Nemotron-3.5-Super-VL",
+  "image": "eval/images/room-01-corner.jpg",
+  "request_succeeded": false,
+  "validated": false,
+  "analysis": null,
+  "error": "The model returned an empty response."
+}

@@ -2,7 +2,7 @@
 
 **Verify before you pay.**
 
-> **Status: local prototype, verified October 28, 2026.** Geometry, versioned fit assessments, and the PayPal authorize / capture / void server flow are implemented. A live PayPal Sandbox buyer approval has not been observed, because this workspace has no sandbox credentials. The vision service does not measure photographs.
+> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. A sandbox order was created and read back. Buyer approval, capture, and void have not been observed, because that step needs a sandbox buyer login. The vision service does not measure photographs.
 
 SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
 
@@ -48,15 +48,15 @@ Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v
 
 ### Required
 
-- [ ] Photo upload and editable placement-area selection.
-- [ ] At least one explicit scale/reference measurement and the other dimensions required by the fit calculation.
-- [ ] Vision-assisted scene/placement interpretation with structured output.
+- [x] Photo upload and an editable placement rectangle. The sample diagram is an original drawing, not a measured apartment.
+- [x] Buyer-entered width, depth, clearance, and budget. The photograph does not supply those numbers.
+- [x] Nebius `nvidia/Nemotron-3.5-Super-VL` returns structured placement JSON. Physical dimensions are rejected.
 - [x] Deterministic geometry for **rectangular desk placement areas**, using buyer-entered measurements.
-- [ ] Seed catalog of 12–20 demo desks. Two fictional desks are seeded.
-- [ ] Natural-language budget and clearance constraints. The form accepts numbers directly.
+- [x] Seed catalog of 12 fictional desks.
+- [x] A natural-language request can propose a budget and clearance. The buyer must apply and confirm those values.
 - [x] `FIT`, `DOES_NOT_FIT`, and `UNCERTAIN` decisions with reasons and a policy fingerprint.
-- [x] Buyer review of the catalog SKU and price before PayPal approval. The PayPal button stays hidden until sandbox credentials are set.
-- [ ] Real sandbox order approval. Authorize, capture, and void are implemented and tested with mocks.
+- [x] Buyer review of the catalog SKU and price before PayPal approval.
+- [ ] Real sandbox buyer approval. An authorize-intent order was created and read back. Capture and void of a live authorization were not observed.
 - [ ] PayPal webhook verification.
 - [x] Responsive interface with a 2D footprint, loading, error, and payment states. A receipt is shown only after a verified capture.
 - [x] Automated geometry and payment-policy tests. PayPal is mocked.
@@ -92,7 +92,7 @@ flowchart TD
 | Frontend | Next.js, TypeScript, Tailwind CSS | Room workflow, comparison, buyer consent, receipt |
 | Visual preview | Three.js or calibrated 2D canvas | Show the placement region and clearances |
 | Computer vision | Python, FastAPI, OpenCV | Calibration, geometry extraction, measurement checks |
-| Multimodal AI | Provider to be selected, structured JSON outputs | Scene interpretation, user intent, candidate explanations |
+| Multimodal AI | Nebius Token Factory, `nvidia/Nemotron-3.5-Super-VL` | Scene interpretation and shopping-request extraction. It cannot set a price or a fit result. |
 | Database | PostgreSQL with Prisma ORM | Catalog, scene versions, assessments, purchase and payment ledger |
 | Payments | PayPal Sandbox Orders v2, Payments v2, webhooks | Buyer approval, authorize/capture/void, verification |
 | Hosting | Render or equivalent | Web and vision services, managed PostgreSQL |
@@ -101,7 +101,7 @@ flowchart TD
 
 ### Repository layout
 
-`web/`, `vision/`, `data/`, `docker-compose.yml`, and `docs/` exist. `eval/` is still planned. The license is Apache-2.0. See `LICENSE`.
+`web/`, `vision/`, `data/`, `eval/`, `docker-compose.yml`, and `docs/` exist. The license is Apache-2.0. See `LICENSE`.
 
 ## Spatial verification contract
 
@@ -118,7 +118,7 @@ UNCERTAIN if a required measurement is missing, invalid, or unconfirmed.
 
 Lengths are integer millimeters. Money is integer cents. The desk is not rotated. `POST /api/assessments` returns the result, machine-readable reasons, a human explanation, the room version, and a policy fingerprint. A missing measurement is never treated as `FIT`.
 
-The current demo uses two fictional desks:
+The catalog has 12 fictional desks. The two used in the payment scenarios are:
 
 | SKU | Size | Price |
 | --- | --- | --- |
@@ -197,10 +197,17 @@ PAYPAL_CLIENT_SECRET=
 PAYPAL_WEBHOOK_ID=
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=
 VISION_SERVICE_URL=http://localhost:8000
-AI_PROVIDER_API_KEY=
 ```
 
-`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client id. It must be the same app as `PAYPAL_CLIENT_ID`. Never put `PAYPAL_CLIENT_SECRET` in a `NEXT_PUBLIC_` variable.
+Copy `vision/.env.example` to `vision/.env`:
+
+```dotenv
+NEBIUS_API_KEY=
+NEBIUS_MODEL_ID=nvidia/Nemotron-3.5-Super-VL
+NEBIUS_BASE_URL=https://api.tokenfactory.us-north1.nebius.com/v1
+```
+
+`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client id. It must be the same app as `PAYPAL_CLIENT_ID`. Never put `PAYPAL_CLIENT_SECRET` or `NEBIUS_API_KEY` in a `NEXT_PUBLIC_` variable. The Nebius key is read only by FastAPI.
 
 Verified on October 28, 2026:
 
@@ -225,11 +232,11 @@ python -m pytest
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-`npx prisma migrate dev` created and applied `20261028180206_init` against PostgreSQL 16. `npm run db:seed` loaded `DESK-NOOK-100` and `DESK-STUDIO-140`. `npm test` passed 31 tests. Vision `pytest` passed 4 tests. `npx next build` compiled successfully. The vision health check returned OpenCV 5.0.0 and `"image_measurement": false`.
+`npx prisma migrate dev` applied `20261028180206_init` and `20261028190753_scene_placement`. `npm run db:seed` loads 12 desks, including `DESK-NOOK-100` and `DESK-STUDIO-140`. On October 28, 2026, `npm test` passed 36 tests and vision `pytest` passed 14 tests. The vision health check returned OpenCV 5.0.0, `"image_measurement": false`, and model id `nvidia/Nemotron-3.5-Super-VL`.
 
-`node_modules` and `vision/.venv` were already present, so `npm install` and `py -3.11 -m venv .venv` were not repeated. `pip install -r requirements.txt` was run and installed FastAPI, Uvicorn, OpenCV, and pytest. A fresh clone should still run the full command list above.
+`node_modules` and `vision/.venv` were already present, so `npm install` and virtualenv creation were not repeated on the last run. `pip install -r requirements.txt` installed FastAPI, Uvicorn, OpenCV, pytest, and the OpenAI client used to call Nebius. A fresh clone should still run the full command list above.
 
-Open `http://localhost:3000`. The 100 cm room button plus the Studio desk shows `DOES NOT FIT` and leaves checkout closed. The 150 cm room button plus the Nook desk shows `FIT`. Without sandbox credentials, the page explains that PayPal is not configured and does not show a successful payment.
+Open `http://localhost:3000`. Confirm the measurements, choose the 100 cm room, and check the Studio desk: the server returns `DOES NOT FIT` and checkout stays closed. The 150 cm room and the Nook desk can return `FIT`. PayPal then creates an authorize-intent order for the catalog price. Capture stays unavailable until a sandbox buyer approves that order and the server authorizes it. Unconfirmed measurements return `UNCERTAIN`.
 
 ## Acceptance tests
 
@@ -239,33 +246,28 @@ Open `http://localhost:3000`. The 100 cm room button plus the Studio desk shows 
 - [x] A clearance violation is rejected.
 - [x] A desk that satisfies the measured constraints is accepted. Verified for the 100 cm Nook desk in a 150 cm room.
 - [x] Missing, invalid, or unconfirmed measurements return `UNCERTAIN`, not `FIT`.
-- [x] A client-supplied price or fit result cannot override the catalog. Photo measurement is not an input.
-- [ ] A vision or LLM failure path is not wired into checkout yet. `POST /vision/measure` returns HTTP 501 and does not invent dimensions.
+- [x] A client-supplied price or fit result cannot override the catalog. A live order created after a claimed price of 100 cents was read back from PayPal as `USD 129.00`.
+- [x] `POST /measure` still returns HTTP 501 and does not invent dimensions. Nebius proposals are validated and cannot set millimeters. A model failure returns an error and does not open checkout.
 
 ### PayPal
 
 Automated tests mock PayPal. They do not prove a live sandbox payment.
 
 - [x] `DOES_NOT_FIT` and `UNCERTAIN` do not call order creation. A live `POST /api/paypal/orders` for a failed assessment returned HTTP 403 `NOT_ELIGIBLE`.
-- [x] A forged client price stays at the catalog amount in the mocked create call. A forged SKU is rejected.
+- [x] A forged client price stays at the catalog amount. PayPal read order `4JY697996K476130H` as `USD 129.00` for `DESK-NOOK-100` after the client claimed 100 cents. A forged SKU returned HTTP 403 `SKU_MISMATCH` and created no order.
 - [x] A changed room version blocks checkout. After `PATCH /api/rooms/{id}` moved a room from version 1 to version 2, order creation returned HTTP 403 `STALE_ASSESSMENT`.
 - [x] Mocked tests cover authorization without capture, a single capture, a duplicate capture that does not call PayPal again, void of an uncaptured authorization, and canceled or declined results that are not completed.
-- [ ] An eligible decision has not created a real sandbox order in this workspace. Credentials are empty, and the API returns HTTP 503 `PAYPAL_NOT_CONFIGURED` instead of a fake success.
-- [ ] Authorization and capture IDs from PayPal Sandbox have not been observed.
+- [x] A `FIT` assessment created sandbox order `4JY697996K476130H` with intent `AUTHORIZE` and status `CREATED`.
+- [ ] Buyer approval has not happened. Authorizing that order returned HTTP 409 `NOT_APPROVED`. Capture was refused locally with `NOT_AUTHORIZED` and was not sent to PayPal. No authorization id, capture id, or void has been observed.
 - [ ] Webhooks are not implemented.
 
-## Evaluation plan
+## Evaluation
 
-Collect an original or properly licensed set of room photos with known measurements and product dimensions. Keep train/development examples separate from the held-out evaluation scenes.
+`eval/images/` has ten original synthetic room diagrams from `vision/scripts/make_eval_images.py`. They are not photographs of measured rooms. `vision/scripts/run_eval.py` calls Nebius and writes `eval/results.json`.
 
-Report at least:
+On October 28, 2026, model `nvidia/Nemotron-3.5-Super-VL` returned a placement box for nine diagrams and no box for `room-03-plant`. Where a box existed, overlap with the painted open floor was 0.00, 0.33, 0.34, 0.36, 0.40, 0.43, 0.52, 0.56, and 0.64. Every accepted response had `dimensions_mm: null`. Buyer correction and a purchase decision were not recorded for these files. That overlap is not a physical-fit accuracy score.
 
-1. Spatial calibration error against physical measurements.
-2. False `FIT` approvals on genuinely incompatible product-scene pairs.
-3. Correct rejection rate and `UNCERTAIN` / abstention rate.
-4. Payment-policy violations blocked, duplicate-capture prevention, and end-to-end sandbox status reconciliation.
-
-Provide labeled cases and a reproducible runner under `eval/`. **Do not invent accuracy, cost-savings, or transaction-success metrics.**
+Still not measured: calibration error against a real room, false `FIT` rate on photographed apartments, and a completed sandbox capture.
 
 ## Build milestones and Cursor working instructions
 
@@ -273,18 +275,17 @@ Provide labeled cases and a reproducible runner under `eval/`. **Do not invent a
 
 - [x] Scaffold the monorepo and local PostgreSQL. Migration `20261028180206_init` applied and both desks seeded.
 - [x] Deterministic fit checker for one rectangular space and two desks.
-- [ ] Actual PayPal Sandbox buyer approval and verified capture. The code path exists; sandbox credentials were empty, so no live order was created.
+- [ ] Actual PayPal Sandbox buyer approval and verified capture. Order `4JY697996K476130H` was created. The buyer has not approved it.
 - [x] Block order creation for a failed fit assessment. Verified with HTTP 403 `NOT_ELIGIBLE`.
 
-**Exit gate still open:** one live fit → sandbox payment case has not been observed.
+**Exit gate still open:** one live fit → buyer approval → verified capture has not been observed.
 
-### Milestone 2: October 30–November 3, spatial product
+### Milestone 2: spatial product
 
-This is the next milestone. Do not start it until a live sandbox authorization can be configured, or continue it in parallel only after that credential check is explicit.
-
-- [ ] Room photo upload, reference measurements, user-correctable placement area.
-- [ ] Vision model integration and structured output validation.
-- [ ] Seed 12–20 desk products and show spatial eligibility with reasons.
+- [x] Room photo upload, buyer-entered measurements, and a user-correctable placement rectangle.
+- [x] Nebius vision-language integration and Pydantic validation. The model does not supply millimeters.
+- [x] Twelve fictional desks, with fit reasons from the geometry engine.
+- [ ] A completed sandbox authorization, capture, or void. Buyer approval is still required.
 
 ### Milestone 3: November 4–7, payment lifecycle
 
@@ -296,7 +297,7 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 
 ### Milestone 4: November 8–10, proof and polish
 
-- [ ] Evaluation cases and repeatable metrics.
+- [x] Ten original diagrams, one real Nebius run, and recorded overlap. Not a physical calibration study.
 - [x] Responsive 2D placement preview, loading and error states, and explanations for fit and payment status. A capture receipt appears only after the server verifies a capture.
 - [ ] Hosted demo using sandbox credentials.
 
@@ -326,7 +327,7 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 - **Live demo:** Not deployed yet
 - **Demo video:** Not recorded yet
 - **Source:** https://github.com/Mukesh-SCS/SpaceProof
-- **PayPal integration:** Sandbox code only. No sandbox transaction has been verified.
+- **PayPal integration:** Sandbox order `4JY697996K476130H` was created and read back as authorized-intent, not captured. Buyer approval, capture, and void are still pending.
 
 ## License and attribution
 
@@ -338,4 +339,5 @@ This project is licensed under the Apache License 2.0. The full text is in the t
 - [PayPal AI Hackathon resources](https://paypalaihackathon.devpost.com/resources)
 - [PayPal developer documentation](https://developer.paypal.com/)
 - [PayPal sandbox testing](https://developer.paypal.com/sandbox-testing/overview/)
+- [Nebius Token Factory](https://docs.tokenfactory.nebius.com/)
 - [Render PostgreSQL documentation](https://render.com/docs/postgresql)

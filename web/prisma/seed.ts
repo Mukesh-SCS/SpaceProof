@@ -31,7 +31,7 @@ function assertProduct(value: SeedFile["products"][number], index: number): void
     throw new Error(`${label} dimensions must be greater than zero.`);
   }
   if (value.currency !== "USD") {
-    throw new Error(`${label} currency must be USD for Milestone 1.`);
+    throw new Error(`${label} currency must be USD.`);
   }
   if (typeof value.available !== "boolean") {
     throw new Error(`${label}.available must be boolean.`);
@@ -41,10 +41,19 @@ function assertProduct(value: SeedFile["products"][number], index: number): void
 async function main() {
   const filePath = path.resolve(process.cwd(), "..", "data", "products.json");
   const parsed = JSON.parse(readFileSync(filePath, "utf8")) as SeedFile;
-  if (!Array.isArray(parsed.products) || parsed.products.length !== 2) {
-    throw new Error("Milestone 1 seed must contain exactly two products.");
+  if (!Array.isArray(parsed.products) || parsed.products.length < 12 || parsed.products.length > 20) {
+    throw new Error("The desk catalog must contain 12 to 20 products.");
   }
   parsed.products.forEach(assertProduct);
+  const bySku = new Map(parsed.products.map((product) => [product.sku, product]));
+  const nook = bySku.get("DESK-NOOK-100");
+  const studio = bySku.get("DESK-STUDIO-140");
+  if (!nook || nook.widthMm !== 1000 || nook.priceMinor !== 12900) {
+    throw new Error("DESK-NOOK-100 must stay a 100 cm desk at $129.00.");
+  }
+  if (!studio || studio.widthMm !== 1400 || studio.priceMinor !== 21900) {
+    throw new Error("DESK-STUDIO-140 must stay a 140 cm desk at $219.00.");
+  }
   if (
     parsed.products[0].widthMm === parsed.products[1].widthMm &&
     parsed.products[0].depthMm === parsed.products[1].depthMm

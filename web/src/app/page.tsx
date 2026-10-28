@@ -13,19 +13,11 @@ export default function HomePage() {
         <p className="text-xs font-medium tracking-[0.18em] text-teal uppercase">PayPal sandbox · desks only</p>
         <h1 className="font-display mt-2 text-4xl text-ink sm:text-5xl">SpaceProof</h1>
         <p className="mt-3 max-w-2xl text-lg text-ink/80">Verify before you pay.</p>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/70">
-          SpaceProof checks a desk against the room, the clearance, and the budget before a buyer can approve
-          a PayPal authorization. After approval, the server authorizes the order, reloads the catalog and the
-          current measurements, and only then captures. If the fit assessment is no longer valid, capture is
-          refused and the authorization is voided. A photograph is not measured yet, and a fit result is not a
-          guarantee of physical compatibility.
+        <p className="mt-2 max-w-3xl text-base leading-7 text-ink/75">
+          Upload a room photo, confirm the real width and depth, and let the server decide which desks fit. PayPal
+          can authorize a payment only after that decision is FIT. Capture happens later, after a fresh check. A
+          photograph is not a measurement, and a fit result is not a guarantee of physical compatibility.
         </p>
-        <ol className="mt-4 max-w-2xl list-decimal space-y-1 pl-5 text-sm text-ink/70">
-          <li>Confirm the room, clearance, and budget.</li>
-          <li>Check a desk. Only a server result of FIT can open PayPal.</li>
-          <li>Approve the sandbox authorization for the catalog price.</li>
-          <li>Capture after a fresh check, or correct the room and watch capture get blocked.</li>
-        </ol>
       </header>
       <Suspense fallback={<p className="text-ink/70">Loading the desk catalog…</p>}>
         <Catalog />
@@ -67,7 +59,7 @@ async function Catalog() {
     return (
       <section className="rounded-2xl border border-line bg-card p-5">
         <h2 className="font-display text-2xl">The catalog is empty</h2>
-        <p className="mt-2 text-sm text-ink/80">Run the Prisma seed to load the two demo desks.</p>
+        <p className="mt-2 text-base text-ink/80">Run the Prisma seed to load the demo desks.</p>
       </section>
     );
   }

@@ -28,8 +28,8 @@ def test_contract_does_not_invent_dimensions() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["image_measurement"] is False
-    assert body["planned"]["response"]["dimensions_mm"] is None
-    assert body["planned"]["response"]["requires_user_confirmation"] is True
+    assert body["analyze_room"]["dimensions_mm"] is None
+    assert body["analyze_room"]["requires_user_confirmation"] is True
 
 
 def test_measure_is_not_implemented() -> None:

@@ -5,6 +5,7 @@ import { assessFit, type CatalogProduct, type NormalizedRoom } from "@/lib/geome
 import type { AssessmentResponse } from "@/lib/api-types";
 import { evidenceFingerprint, type EvidenceRoom } from "@/lib/policy/fingerprint";
 import { roomDraftChanged } from "@/lib/rooms";
+import { placementChanged, placementColumns, placementFromRow, type PlacementBox } from "@/lib/scene";
 
 function toCatalog(product: {
   sku: string;
@@ -26,6 +27,11 @@ function toCatalog(product: {
     currency: product.currency,
     available: product.available,
   };
+}
+
+function labelOnly(current: PlacementBox | null, next: PlacementBox | null): boolean {
+  if (!current || !next || placementChanged(current, next)) return false;
+  return current.label !== next.label || current.source !== next.source;
 }
 
 function draftData(draft: NormalizedRoom) {
@@ -102,19 +108,36 @@ export async function POST(request: Request) {
           currency: existing.currency,
           confirmed: existing.confirmedByUser,
         };
-        if (roomDraftChanged(current, draft)) {
+        const currentPlacement = placementFromRow(existing);
+        const nextPlacement = parsed.placementPresent ? parsed.placement : currentPlacement;
+        const sceneChanged = parsed.placementPresent && placementChanged(currentPlacement, parsed.placement);
+        if (roomDraftChanged(current, draft) || sceneChanged) {
           const updated = await tx.roomMeasurement.updateMany({
             where: { id: existing.id, version: existing.version },
-            data: { ...draftData(draft), version: { increment: 1 } },
+            data: {
+              ...draftData(draft),
+              ...(parsed.placementPresent ? placementColumns(nextPlacement) : {}),
+              version: { increment: 1 },
+            },
           });
           if (updated.count !== 1) return { conflict: true as const };
+          room = await tx.roomMeasurement.findUniqueOrThrow({ where: { id: existing.id } });
+        } else if (parsed.placementPresent && labelOnly(currentPlacement, parsed.placement)) {
+          await tx.roomMeasurement.update({
+            where: { id: existing.id },
+            data: placementColumns(parsed.placement),
+          });
           room = await tx.roomMeasurement.findUniqueOrThrow({ where: { id: existing.id } });
         } else {
           room = existing;
         }
       } else {
         room = await tx.roomMeasurement.create({
-          data: { ...draftData(draft), version: 1 },
+          data: {
+            ...draftData(draft),
+            ...(parsed.placementPresent ? placementColumns(parsed.placement) : {}),
+            version: 1,
+          },
         });
       }
 

@@ -2,6 +2,12 @@ import { assessFit, type NormalizedRoom } from "@/lib/geometry/fit";
 import { readRoomPatch } from "@/lib/assessments";
 import { prisma } from "@/lib/db/prisma";
 import { roomDraftChanged } from "@/lib/rooms";
+import { placementChanged, placementColumns, placementFromRow, type PlacementBox } from "@/lib/scene";
+
+function labelOnly(current: PlacementBox | null, next: PlacementBox | null): boolean {
+  if (!current || !next || placementChanged(current, next)) return false;
+  return current.label !== next.label || current.source !== next.source;
+}
 
 function draftData(draft: NormalizedRoom) {
   return {
@@ -57,12 +63,24 @@ export async function PATCH(
       currency: existing.currency,
       confirmed: existing.confirmedByUser,
     };
-    if (!roomDraftChanged(current, draft)) {
+    const currentPlacement = placementFromRow(existing);
+    const sceneChanged = parsed.placementPresent && placementChanged(currentPlacement, parsed.placement);
+    if (!roomDraftChanged(current, draft) && !sceneChanged) {
+      if (parsed.placementPresent && labelOnly(currentPlacement, parsed.placement)) {
+        await tx.roomMeasurement.update({
+          where: { id: existing.id },
+          data: placementColumns(parsed.placement),
+        });
+      }
       return { id: existing.id, version: existing.version, previousVersion: existing.version, changed: false };
     }
     const updated = await tx.roomMeasurement.updateMany({
       where: { id: existing.id, version: existing.version },
-      data: { ...draftData(draft), version: { increment: 1 } },
+      data: {
+        ...draftData(draft),
+        ...(parsed.placementPresent ? placementColumns(parsed.placement) : {}),
+        version: { increment: 1 },
+      },
     });
     if (updated.count !== 1) return { conflict: true as const };
     const room = await tx.roomMeasurement.findUniqueOrThrow({ where: { id: existing.id } });

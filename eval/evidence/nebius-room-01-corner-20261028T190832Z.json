@@ -1,0 +1,53 @@
+{
+  "observed_at": "20261028T190832Z",
+  "provider": "Nebius Token Factory",
+  "base_host": "api.tokenfactory.us-north1.nebius.com",
+  "model_id": "nvidia/Nemotron-3.5-Super-VL",
+  "image": "eval/images/room-01-corner.jpg",
+  "request_succeeded": true,
+  "validated": true,
+  "analysis": {
+    "room_description": "The image shows a simplified interior view with a light teal upper wall section containing a white rectangular shape in the upper left, and a brown lower floor section. A dark green rectangular object sits on the floor in the lower right area.",
+    "placement_candidates": [
+      {
+        "id": "region-1",
+        "label": "Desk placement area",
+        "bbox_normalized": [
+          0.0,
+          0.4,
+          1.0,
+          1.0
+        ],
+        "confidence": 0.3,
+        "reason": "Open brown floor area visible below the wall line, though the image is highly abstract and lacks detail to confirm usability."
+      }
+    ],
+    "visible_obstacles": [
+      {
+        "label": "floor object",
+        "bbox_normalized": [
+          0.61,
+          0.55,
+          0.84,
+          0.87
+        ],
+        "note": "Dark green rectangular object on the floor in the lower right area."
+      }
+    ],
+    "measurement_questions": [
+      "Which distance should the buyer measure between the wall line and the dark green floor object?"
+    ],
+    "warnings": [
+      "The image is highly abstract and lacks photographic detail, so furniture fit cannot be verified.",
+      "The dark green floor object may obstruct desk placement.",
+      "These regions are visual suggestions. Confirm the available width and depth yourself."
+    ],
+    "dimensions_mm": null,
+    "requires_user_confirmation": true,
+    "prepared_image_pixels": {
+      "width": 960,
+      "height": 640
+    }
+  },
+  "error": null
+}

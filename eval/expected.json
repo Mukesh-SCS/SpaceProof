@@ -1,0 +1,244 @@
+{
+  "scenes": [
+    {
+      "id": "room-01-corner",
+      "file": "eval/images/room-01-corner.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.62,
+        0.55,
+        0.84,
+        0.86
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-02-window",
+      "file": "eval/images/room-02-window.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.08,
+        0.58,
+        0.28,
+        0.88
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-03-plant",
+      "file": "eval/images/room-03-plant.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.72,
+        0.48,
+        0.9,
+        0.78
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-04-narrow",
+      "file": "eval/images/room-04-narrow.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.4,
+        0.62,
+        0.58,
+        0.9
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-05-alcove",
+      "file": "eval/images/room-05-alcove.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.05,
+        0.5,
+        0.22,
+        0.82
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-06-shelf",
+      "file": "eval/images/room-06-shelf.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.78,
+        0.36,
+        0.94,
+        0.7
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-07-bright",
+      "file": "eval/images/room-07-bright.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.3,
+        0.7,
+        0.48,
+        0.92
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-08-side",
+      "file": "eval/images/room-08-side.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.84,
+        0.5,
+        0.97,
+        0.9
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-09-low",
+      "file": "eval/images/room-09-low.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.4,
+          0.48,
+          0.9,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.15,
+        0.72,
+        0.4,
+        0.94
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    },
+    {
+      "id": "room-10-emptyish",
+      "file": "eval/images/room-10-emptyish.jpg",
+      "kind": "original synthetic room diagram",
+      "expected_placement": {
+        "label": "Open floor drawn by the eval script",
+        "bbox_normalized": [
+          0.08,
+          0.48,
+          0.55,
+          0.9
+        ]
+      },
+      "obstacle_bbox_normalized": [
+        0.7,
+        0.78,
+        0.86,
+        0.94
+      ],
+      "ai_proposed_placement": null,
+      "user_correction_required": null,
+      "final_assessment_valid": null,
+      "notes": "Physical millimeters are not encoded in the image. Assessment validity stays null until a buyer confirms measurements."
+    }
+  ]
+}

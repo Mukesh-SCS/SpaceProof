@@ -179,12 +179,16 @@ describe("deterministic fit engine", () => {
     const file = JSON.parse(readFileSync(path.resolve(process.cwd(), "../data/products.json"), "utf8")) as {
       products: CatalogProduct[];
     };
-    expect(file.products).toHaveLength(2);
-    expect(file.products[0].widthMm).not.toBe(file.products[1].widthMm);
-    expect(file.products.map((product) => product.sku)).toEqual(["DESK-NOOK-100", "DESK-STUDIO-140"]);
-    const decisions = file.products.map((product) => assessFit(product, room()).result);
-    expect(decisions).toEqual(["FIT", "DOES_NOT_FIT"]);
-    const wide = assessFit(file.products[1], room());
+    expect(file.products.length).toBeGreaterThanOrEqual(12);
+    expect(file.products.length).toBeLessThanOrEqual(20);
+    expect(new Set(file.products.map((product) => product.sku)).size).toBe(file.products.length);
+    const nookRow = file.products.find((product) => product.sku === "DESK-NOOK-100");
+    const studio = file.products.find((product) => product.sku === "DESK-STUDIO-140");
+    expect(nookRow?.widthMm).toBe(1000);
+    expect(studio?.widthMm).toBe(1400);
+    expect(assessFit(nookRow ?? null, room()).result).toBe("FIT");
+    const wide = assessFit(studio ?? null, room());
+    expect(wide.result).toBe("DOES_NOT_FIT");
     expect(wide.reasons.map((reason) => reason.code)).toEqual(
       expect.arrayContaining(["CLEARANCE_EXCEEDS_WIDTH", "OVER_BUDGET"]),
     );

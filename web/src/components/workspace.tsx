@@ -6,9 +6,19 @@ import { DEMO_ROOM } from "@/lib/demo-scenario";
 import type { CatalogProduct } from "@/lib/geometry/fit";
 import { formatUsd, parseUsdToMinor } from "@/lib/money";
 import type { PlacementBox } from "@/lib/scene";
+import {
+  checkoutClosedReason,
+  journeySteps,
+  selectCatalog,
+  STALE_ASSESSMENT_NOTICE,
+  verdict,
+  type CatalogFilter,
+} from "@/components/experience";
 import { FitResult } from "@/components/fit-result";
+import { PaymentStatus } from "@/components/payment-status";
 import { PayPalCheckout } from "@/components/paypal-checkout";
 import { PlacementEditor, type NormBox } from "@/components/placement-editor";
+import { ProductCard } from "@/components/product-card";
 
 interface CardState {
   phase: "idle" | "loading" | "done" | "error";
@@ -50,22 +60,6 @@ interface RankNote {
   priceMinor: number;
 }
 
-const paymentTones: Record<string, string> = {
-  AUTHORIZED: "border-authorized/30 bg-authorized/10 text-authorized",
-  CAPTURED: "border-captured/30 bg-captured/10 text-captured",
-  VOIDED: "border-voided/30 bg-voided/10 text-voided",
-  FAILED: "border-nofit/30 bg-nofit/10 text-nofit",
-  CANCELED: "border-uncertain/30 bg-uncertain/10 text-uncertain",
-  PENDING: "border-line bg-paper text-ink",
-  CREATED: "border-line bg-paper text-ink",
-};
-
-const resultTone: Record<string, string> = {
-  FIT: "bg-fit/10 text-fit",
-  DOES_NOT_FIT: "bg-nofit/10 text-nofit",
-  UNCERTAIN: "bg-uncertain/15 text-uncertain",
-};
-
 export function Workspace({
   products,
   paypal,
@@ -86,7 +80,8 @@ export function Workspace({
   const [busy, setBusy] = useState<string | null>(null);
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [payConsent, setPayConsent] = useState(false);
-  const [filter, setFilter] = useState<"all" | "FIT" | "DOES_NOT_FIT" | "UNCERTAIN">("all");
+  const [filter, setFilter] = useState<CatalogFilter>("all");
+  const [showAll, setShowAll] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisView | null>(null);
   const [visionPhase, setVisionPhase] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -219,7 +214,6 @@ export function Workspace({
 
   async function checkFit(sku: string, roomOverride?: string | null) {
     setCards((current) => ({ ...current, [sku]: { phase: "loading" } }));
-    setPayments((current) => ({ ...current, [sku]: null }));
     setPayConsent(false);
     const activeRoom = roomOverride === undefined ? roomId : roomOverride;
     try {
@@ -386,92 +380,119 @@ export function Workspace({
     selectedPayment?.displayStatus !== "CAPTURED" &&
     selectedPayment?.ledgerStatus !== "VOIDED";
 
-  const visible = products.filter((product) => {
-    if (filter === "all") return true;
-    return cards[product.sku]?.assessment?.result === filter;
-  });
+  const results = Object.fromEntries(
+    products.map((product) => [product.sku, cards[product.sku]?.assessment?.result]),
+  );
+  const catalog = selectCatalog(products, results, filter, selectedSku, showAll);
   const obstacles = (analysis?.visible_obstacles ?? [])
     .map((item) => boxFromModel(item.bbox_normalized, item.label, "ai"))
     .filter((item): item is PlacementBox => item !== null);
+  const steps = journeySteps({
+    hasPhoto: Boolean(imageUrl),
+    measurementsConfirmed: confirmed,
+    hasCurrentAssessment: checkedSignature !== null && !sceneDirty,
+    paymentSettled: Object.values(payments).some(
+      (payment) => payment?.displayStatus === "CAPTURED" || payment?.displayStatus === "VOIDED",
+    ),
+  });
+  const closedReason = checkoutClosedReason({
+    result: selectedCard?.assessment?.result ?? null,
+    confirmed,
+    sceneDirty,
+    consented: payConsent,
+  });
+  const earlierPayments = Object.entries(payments).flatMap(([sku, payment]) =>
+    payment && sku !== selected?.sku && (payment.displayStatus === "CAPTURED" || payment.displayStatus === "VOIDED")
+      ? [{ sku, payment }]
+      : [],
+  );
 
-  const steps = [
-    { n: "1", label: "Upload space", done: Boolean(imageUrl) },
-    { n: "2", label: "Confirm measurements", done: confirmed && checkedSignature !== null },
-    { n: "3", label: "Verify products", done: Object.values(cards).some((card) => card.assessment) },
-    {
-      n: "4",
-      label: "Approve payment",
-      done: Object.values(payments).some((payment) => payment?.ledgerStatus === "AUTHORIZED" || payment?.displayStatus === "CAPTURED"),
-    },
-  ];
+  function focusReview(sku: string) {
+    setSelectedSku(sku);
+    window.requestAnimationFrame(() => document.getElementById("fit-review")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
   return (
-    <div className="space-y-6">
-      <ol className="grid gap-2 sm:grid-cols-4">
-        {steps.map((step) => (
-          <li key={step.n} className="rounded-xl border border-line bg-card px-3 py-3">
-            <p className="text-xs font-semibold tracking-[0.14em] text-teal uppercase">Step {step.n}</p>
-            <p className="mt-1 text-base font-medium">{step.label}</p>
-            <p className="text-sm text-ink/60">{step.done ? "Ready" : "Waiting"}</p>
+    <div className="space-y-8">
+      <ol className="grid grid-cols-4 gap-2" aria-label="Purchase steps">
+        {steps.map((step, index) => (
+          <li
+            key={step.id}
+            aria-current={step.state === "current" ? "step" : undefined}
+            className={`rounded-xl border px-2 py-2 sm:px-3 ${
+              step.state === "current" ? "border-teal bg-card" : "border-line bg-card/70"
+            }`}
+          >
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-teal uppercase">{index + 1}</p>
+            <p className="text-sm font-medium sm:text-base">{step.label}</p>
+            <p className="text-xs text-ink/55">{step.state === "done" ? "Done" : step.state === "current" ? "Now" : "Waiting"}</p>
           </li>
         ))}
       </ol>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <section className="space-y-4 rounded-2xl border border-line bg-card p-4 sm:p-5">
-          <div>
-            <h2 className="font-display text-3xl">Upload space</h2>
-            <p className="mt-2 text-base leading-7 text-ink/75">
-              A photograph can suggest where a desk might go. You still enter the width, depth, clearance, and budget.
-              Unconfirmed measurements stay uncertain, and checkout stays closed.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-teal px-4 text-sm font-medium text-white">
-              Upload JPEG or PNG
-              <input
-                className="sr-only"
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void analyzeFile(file);
-                }}
-              />
-            </label>
-            <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" onClick={() => void useSample()}>
-              Use sample diagram
-            </button>
-            <button
-              type="button"
-              className="min-h-11 rounded-full border border-line px-4 text-sm"
-              onClick={() => {
-                setPlacement(null);
-                setDrawing(true);
-              }}
-            >
-              Draw my own region
-            </button>
-          </div>
-          {visionPhase === "loading" ? <p className="text-base text-ink/70">Reading the photograph. No measurement is being inferred.</p> : null}
-          {visionError ? <p className="text-base text-nofit">{visionError}</p> : null}
-          <PlacementEditor
-            imageUrl={imageUrl}
-            box={placement}
-            obstacles={obstacles}
-            drawing={drawing}
-            onDrawingChange={setDrawing}
-            onBoxChange={(box) =>
-              setPlacement({
-                ...box,
-                label: placement?.label ?? "Desk placement area",
-                source: "buyer",
-              })
-            }
-          />
-          {analysis?.room_description ? <p className="text-base leading-7">{analysis.room_description}</p> : null}
-          {analysis?.placement_candidates && analysis.placement_candidates.length > 0 ? (
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.8fr)]">
+        <section className="rounded-3xl border border-line bg-card p-4 sm:p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-3xl">Your room</h2>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-ink/70">
+                The photo can suggest a desk area. You still enter the centimeters. Nothing in the picture becomes a measurement.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
+              <label className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-teal px-4 text-sm font-medium text-white">
+                Upload photo
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void analyzeFile(file);
+                  }}
+                />
+              </label>
+              <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" onClick={() => void useSample()}>
+                Sample room
+              </button>
+              <button
+                type="button"
+                className="min-h-11 rounded-full border border-line px-4 text-sm"
+                onClick={() => {
+                  setPlacement(null);
+                  setDrawing(true);
+                }}
+              >
+                Draw area
+              </button>
+            </div>
+          </div>
+          {visionPhase === "loading" ? <p className="mt-3 text-sm text-ink/70">Reading the photograph. No measurement is being inferred.</p> : null}
+          {visionError ? <p className="mt-3 text-sm text-nofit">{visionError}</p> : null}
+          <div className="mt-4">
+            <PlacementEditor
+              imageUrl={imageUrl}
+              box={placement}
+              obstacles={obstacles}
+              drawing={drawing}
+              measurementLabel={
+                confirmed
+                  ? `Entered by you: ${widthCm || "?"} cm wide, ${depthCm || "?"} cm deep`
+                  : "Measurements are not confirmed"
+              }
+              onDrawingChange={setDrawing}
+              onBoxChange={(box) =>
+                setPlacement({
+                  ...box,
+                  label: placement?.label ?? "Desk placement area",
+                  source: "buyer",
+                })
+              }
+            />
+          </div>
+          {analysis?.room_description ? <p className="mt-4 text-sm leading-6">{analysis.room_description}</p> : null}
+          {analysis?.placement_candidates && analysis.placement_candidates.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
               {analysis.placement_candidates.map((candidate) => (
                 <button
                   key={candidate.id}
@@ -487,22 +508,25 @@ export function Workspace({
               ))}
             </div>
           ) : visionPhase === "done" ? (
-            <p className="text-base text-uncertain">No placement region was proposed. Draw the desk area on the photo.</p>
+            <p className="mt-3 text-sm text-uncertain">No placement region was proposed. Draw the desk area on the photo.</p>
           ) : null}
-          {analysis?.warnings?.map((warning) => (
-            <p key={warning} className="text-sm leading-6 text-ink/70">
+          {analysis?.warnings?.slice(0, 2).map((warning) => (
+            <p key={warning} className="mt-2 text-sm leading-6 text-ink/65">
               {warning}
             </p>
           ))}
-          {analysis?.measurement_questions?.map((question) => (
-            <p key={question} className="text-sm leading-6 text-ink/70">
-              Ask: {question}
+          {analysis?.measurement_questions?.slice(0, 2).map((question) => (
+            <p key={question} className="mt-2 text-sm leading-6 text-ink/65">
+              Still to measure: {question}
             </p>
           ))}
+        </section>
 
-          <form className="space-y-3 border-t border-line pt-4" onSubmit={(event) => event.preventDefault()}>
-            <h3 className="font-display text-2xl">Confirm measurements</h3>
-            <div className="flex flex-wrap gap-2">
+        <section id="measurements" className="space-y-4">
+          <form className="rounded-3xl border border-line bg-card p-4 sm:p-5" onSubmit={(event) => event.preventDefault()}>
+            <h2 className="font-display text-3xl">The space</h2>
+            <p className="mt-1 text-sm leading-6 text-ink/70">Whole centimeters. Clearance is added to the desk before the fit check.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className="min-h-11 rounded-full border border-line px-3 text-sm" onClick={() => setWidthCm("100")}>
                 100 cm room
               </button>
@@ -510,21 +534,14 @@ export function Workspace({
                 150 cm room
               </button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid gap-3">
               <Field id="room-width" label="Available width" suffix="cm" value={widthCm} onChange={setWidthCm} />
               <Field id="room-depth" label="Available depth" suffix="cm" value={depthCm} onChange={setDepthCm} />
               <Field id="side-clearance" label="Side clearance" suffix="cm" value={sideClearanceCm} onChange={setSideClearanceCm} />
               <Field id="depth-clearance" label="Depth clearance" suffix="cm" value={depthClearanceCm} onChange={setDepthClearanceCm} />
               <Field id="room-budget" label="Maximum budget" suffix="USD" value={budget} onChange={setBudget} />
             </div>
-            <p className="text-sm leading-6 text-ink/70">
-              Stored size: {millimeterHint(widthCm)} wide and {millimeterHint(depthCm)} deep. Side clearance is added to
-              the desk width. Depth clearance is added to the desk depth.
-              {placement
-                ? ` Placement covers ${Math.round((placement.maxX - placement.minX) * 100)}% of the photo width.`
-                : " No placement rectangle is saved yet."}
-            </p>
-            <label className="flex items-start gap-3 text-base">
+            <label className="mt-4 flex items-start gap-3 text-sm leading-6">
               <input
                 type="checkbox"
                 className="mt-1 h-4 w-4"
@@ -533,53 +550,53 @@ export function Workspace({
               />
               <span>I confirm these measurements. The photograph is not the source of the centimeters.</span>
             </label>
+            {sceneDirty ? <p className="mt-3 text-sm leading-6 text-uncertain">{STALE_ASSESSMENT_NOTICE}</p> : null}
+            {roomNote ? <p className="mt-3 text-sm leading-6">{roomNote}</p> : null}
             <button
               type="button"
-              className="min-h-11 rounded-full border border-line px-4 text-sm disabled:opacity-60"
+              className="mt-4 min-h-11 w-full rounded-full bg-teal px-4 text-sm font-medium text-white disabled:opacity-60"
+              disabled={busy !== null}
+              onClick={() => void verifyAndExplain()}
+            >
+              {busy === "verify" ? "Checking desks…" : "Find compatible desks"}
+            </button>
+            <button
+              type="button"
+              className="mt-2 min-h-11 w-full rounded-full border border-line px-4 text-sm disabled:opacity-60"
               disabled={!roomId || busy !== null}
               onClick={() => void saveRoom()}
             >
               {busy === "room" ? "Saving scene…" : "Save corrected measurements"}
             </button>
-            {roomNote ? <p className="text-base leading-7">{roomNote}</p> : null}
-            {sceneDirty ? (
-              <p className="text-base text-uncertain">
-                The room or placement changed after the last check. Verify the desks again before payment.
-              </p>
-            ) : null}
           </form>
-        </section>
 
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-line bg-card p-4 sm:p-5">
-            <h2 className="font-display text-3xl">Shopping request</h2>
-            <label htmlFor="shopping-request" className="mt-3 block text-base">
+          <div className="rounded-3xl border border-line bg-card p-4 sm:p-5">
+            <h2 className="font-display text-2xl">Shopping request</h2>
+            <label htmlFor="shopping-request" className="mt-3 block text-sm">
               Describe the desk
               <textarea
                 id="shopping-request"
                 value={requestText}
                 onChange={(event) => setRequestText(event.target.value)}
-                rows={4}
+                rows={3}
                 className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-3 text-base"
               />
             </label>
             <button
               type="button"
-              className="mt-3 min-h-11 rounded-full bg-ink px-4 text-sm font-medium text-paper disabled:opacity-60"
+              className="mt-3 min-h-11 rounded-full border border-line px-4 text-sm disabled:opacity-60"
               disabled={preferencePhase === "loading"}
               onClick={() => void readRequest()}
             >
               {preferencePhase === "loading" ? "Reading request…" : "Read request"}
             </button>
-            {preferences?.message ? <p className="mt-3 text-base text-nofit">{preferences.message}</p> : null}
+            {preferences?.message ? <p className="mt-3 text-sm text-nofit">{preferences.message}</p> : null}
             {preferencePhase === "done" && preferences ? (
-              <div className="mt-4 space-y-2 text-base leading-7">
+              <div className="mt-3 space-y-2 text-sm leading-6">
                 <p>Category: {preferences.product_category}</p>
                 <p>
                   Budget:{" "}
-                  {typeof preferences.maximum_budget_minor === "number"
-                    ? formatUsd(preferences.maximum_budget_minor)
-                    : "not stated"}
+                  {typeof preferences.maximum_budget_minor === "number" ? formatUsd(preferences.maximum_budget_minor) : "not stated"}
                 </p>
                 <p>
                   Clearance:{" "}
@@ -590,137 +607,114 @@ export function Workspace({
                     ? `, ${preferences.depth_clearance_mm / 10} cm depth`
                     : ", depth not stated"}
                 </p>
-                {preferences.style_preferences && preferences.style_preferences.length > 0 ? (
-                  <p>Style: {preferences.style_preferences.join(", ")}</p>
-                ) : null}
                 {preferences.unresolved_questions?.map((question) => (
                   <p key={question}>Still open: {question}</p>
                 ))}
-                {preferences.warnings?.map((warning) => (
-                  <p key={warning} className="text-ink/70">
+                {preferences.warnings?.slice(0, 2).map((warning) => (
+                  <p key={warning} className="text-ink/65">
                     {warning}
                   </p>
                 ))}
                 <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" onClick={applyPreferences}>
                   Use these constraints
                 </button>
-                <p className="text-sm leading-6 text-ink/60">
-                  Applying a request clears measurement confirmation. It does not set a PayPal amount.
-                </p>
+                <p className="text-xs leading-5 text-ink/55">Applying a request clears confirmation. It does not set a PayPal amount.</p>
               </div>
             ) : null}
-          </div>
-
-          <div className="rounded-2xl border border-line bg-card p-4 sm:p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 className="font-display text-3xl">Verify products</h2>
-              <button
-                type="button"
-                className="min-h-11 rounded-full bg-teal px-4 text-sm font-medium text-white disabled:opacity-60"
-                disabled={busy !== null}
-                onClick={() => void verifyAndExplain()}
-              >
-                {busy === "verify" ? "Checking desks…" : "Verify all desks"}
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(["all", "FIT", "DOES_NOT_FIT", "UNCERTAIN"] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`rounded-full border px-3 py-2 text-sm ${filter === item ? "border-teal text-teal" : "border-line"}`}
-                  onClick={() => setFilter(item)}
-                >
-                  {item === "all" ? "All" : item === "DOES_NOT_FIT" ? "Does not fit" : item === "UNCERTAIN" ? "Uncertain" : "Fit"}
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 grid gap-3">
-              {visible.map((product) => {
-                const card = cards[product.sku];
-                const result = card?.assessment?.result;
-                return (
-                  <article
-                    key={product.sku}
-                    className={`rounded-xl border p-4 ${selectedSku === product.sku ? "border-teal" : "border-line"}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-2xl">{product.title}</h3>
-                        <p className="text-sm text-ink/60">
-                          {product.sku} · {formatLength(product.widthMm)} wide · {formatLength(product.depthMm)} deep ·{" "}
-                          {formatUsd(product.priceMinor)}
-                        </p>
-                      </div>
-                      {result ? (
-                        <p className={`rounded-full px-3 py-1 text-sm font-semibold ${resultTone[result]}`}>
-                          {result === "DOES_NOT_FIT" ? "DOES NOT FIT" : result}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-ink/50">Not checked</p>
-                      )}
-                    </div>
-                    {card?.phase === "error" ? <p className="mt-2 text-base text-nofit">{card.error}</p> : null}
-                    {notes[product.sku] ? <p className="mt-2 text-base leading-7">{notes[product.sku]}</p> : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="min-h-11 rounded-full border border-line px-4 text-sm"
-                        onClick={() => {
-                          setSelectedSku(product.sku);
-                          void checkFit(product.sku);
-                          setCheckedSignature(signature);
-                        }}
-                      >
-                        {card?.phase === "loading" ? "Checking…" : "Check fit"}
-                      </button>
-                      <button
-                        type="button"
-                        className="min-h-11 rounded-full border border-line px-4 text-sm"
-                        onClick={() => setSelectedSku(product.sku)}
-                      >
-                        Review
-                      </button>
-                    </div>
-                    {selectedSku === product.sku && card?.assessment ? <FitResult assessment={card.assessment} /> : null}
-                  </article>
-                );
-              })}
-              {visible.length === 0 ? <p className="text-base text-ink/70">No desks match this filter yet.</p> : null}
-            </div>
           </div>
         </section>
       </div>
 
-      <section className="rounded-2xl border border-line bg-card p-4 sm:p-5">
-        <h2 className="font-display text-3xl">Approve payment</h2>
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-3xl">Desks</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              {catalog.hidden > 0 ? `Showing the closest matches. ${catalog.hidden} more are hidden.` : "Compare size, price, and the server fit result."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(["all", "FIT", "DOES_NOT_FIT", "UNCERTAIN"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={`min-h-11 rounded-full border px-3 text-sm ${filter === item ? "border-teal bg-teal text-white" : "border-line bg-card"}`}
+                onClick={() => setFilter(item)}
+              >
+                {item === "all" ? "All" : item === "DOES_NOT_FIT" ? "Does not fit" : item === "UNCERTAIN" ? "Uncertain" : "Fits"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {catalog.shown.map((product) => {
+            const card = cards[product.sku];
+            return (
+              <ProductCard
+                key={product.sku}
+                title={product.title}
+                sku={product.sku}
+                widthMm={product.widthMm}
+                depthMm={product.depthMm}
+                priceMinor={product.priceMinor}
+                result={card?.assessment?.result}
+                explanation={
+                  card?.phase === "error"
+                    ? (card.error ?? "The fit check failed.")
+                    : card?.assessment
+                      ? (notes[product.sku] ?? verdict(card.assessment.result).summary)
+                      : "Not checked yet."
+                }
+                selected={selectedSku === product.sku}
+                loading={card?.phase === "loading"}
+                onSelect={() => {
+                  setSelectedSku(product.sku);
+                  void checkFit(product.sku);
+                  setCheckedSignature(signature);
+                  focusReview(product.sku);
+                }}
+                onDetails={() => focusReview(product.sku)}
+              />
+            );
+          })}
+        </div>
+        {catalog.shown.length === 0 ? <p className="mt-4 text-sm text-ink/70">No desks match this filter yet.</p> : null}
+        {catalog.hidden > 0 ? (
+          <button type="button" className="mt-4 min-h-11 rounded-full border border-line px-4 text-sm" onClick={() => setShowAll(true)}>
+            View all desks
+          </button>
+        ) : showAll && filter === "all" ? (
+          <button type="button" className="mt-4 min-h-11 rounded-full border border-line px-4 text-sm" onClick={() => setShowAll(false)}>
+            Show fewer desks
+          </button>
+        ) : null}
+      </section>
+
+      <section id="fit-review" className="scroll-mt-6 rounded-3xl border border-line bg-card p-4 sm:p-5">
         {!selected || !selectedCard?.assessment ? (
-          <p className="mt-3 text-base leading-7 text-ink/75">
-            Choose a desk and check the fit. PayPal opens only after the server records FIT and you approve the catalog
-            price.
-          </p>
+          <div>
+            <h2 className="font-display text-3xl">Review</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/75">
+              Select a desk. The fit decision and PayPal checkout appear here, using the price and result from the server.
+            </p>
+          </div>
         ) : (
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <div className="space-y-2 text-base leading-7">
-              <p className="font-display text-2xl">{selected.title}</p>
-              <p>SKU {selected.sku}</p>
-              <p>Catalog price {formatUsd(catalogPrice)}</p>
-              <p>
-                Result {selectedCard.assessment.result}
-                {selectedCard.assessment.measurementVersion !== null
-                  ? ` · room version ${selectedCard.assessment.measurementVersion}`
-                  : ""}
-              </p>
-              <p>{selectedCard.assessment.explanation}</p>
-              {selectedCard.assessment.result !== "FIT" ? (
-                <p className="text-nofit">Checkout stays closed. The server will not create a PayPal order for this result.</p>
-              ) : null}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+            <div>
+              <p className="text-sm text-ink/60">{selected.title}</p>
+              <h2 className="font-display text-3xl">Fit evidence</h2>
+              <div className="mt-4">
+                <FitResult assessment={selectedCard.assessment} />
+              </div>
             </div>
             <div>
+              <h2 className="font-display text-3xl">Approve payment</h2>
+              <p className="mt-2 text-sm text-ink/70">Catalog price {formatUsd(catalogPrice)}</p>
+              {sceneDirty ? <p className="mt-3 text-sm leading-6 text-uncertain">{STALE_ASSESSMENT_NOTICE}</p> : null}
               {selectedCard.assessment.result === "FIT" && selectedCard.assessment.assessmentId ? (
                 paypal.ready && paypal.clientId ? (
                   <>
-                    <label className="flex items-start gap-3 text-base">
+                    <label className="mt-4 flex items-start gap-3 text-sm leading-6">
                       <input
                         type="checkbox"
                         className="mt-1 h-4 w-4"
@@ -729,8 +723,7 @@ export function Workspace({
                       />
                       <span>
                         I approve a PayPal Sandbox authorization for {formatUsd(catalogPrice)} on {selected.title}. The
-                        catalog price is the only amount that can be authorized. No real money moves. An authorization
-                        is not a completed payment.
+                        catalog price is the only amount that can be authorized. An authorization is not a completed payment.
                       </span>
                     </label>
                     {canOpenPayPal ? (
@@ -742,22 +735,52 @@ export function Workspace({
                         />
                       </div>
                     ) : selectedPayment ? null : (
-                      <p className="mt-3 text-base text-ink/70">Confirm the catalog price to open PayPal.</p>
+                      <p className="mt-3 text-sm text-ink/70">{closedReason}</p>
                     )}
                   </>
                 ) : (
-                  <p className="text-base leading-7">{paypal.message}</p>
+                  <p className="mt-3 text-sm leading-6">{paypal.message}</p>
                 )
-              ) : null}
+              ) : (
+                <div className="mt-4 rounded-2xl border border-nofit/30 bg-nofit/10 p-4 text-sm leading-6 text-nofit">
+                  <p>{closedReason}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a href="#measurements" className="inline-flex min-h-11 items-center rounded-full border border-current px-4">
+                      Correct measurements
+                    </a>
+                    <button type="button" className="min-h-11 rounded-full border border-current px-4" onClick={() => setShowAll(true)}>
+                      Choose another desk
+                    </button>
+                  </div>
+                </div>
+              )}
               {selectedPayment ? (
-                <PaymentPanel
-                  payment={selectedPayment}
-                  busy={busy}
-                  sku={selected.sku}
-                  onCapture={() => void settle(selected.sku, selectedPayment.orderId, "capture")}
-                  onVoid={() => void settle(selected.sku, selectedPayment.orderId, "void")}
-                  onSaveRoom={() => void saveRoom()}
-                />
+                <div className="mt-4">
+                  <PaymentStatus
+                    payment={selectedPayment}
+                    busy={busy}
+                    sku={selected.sku}
+                    onCapture={() => void settle(selected.sku, selectedPayment.orderId, "capture")}
+                    onVoid={() => void settle(selected.sku, selectedPayment.orderId, "void")}
+                    onSaveRoom={() => void saveRoom()}
+                  />
+                </div>
+              ) : null}
+              {earlierPayments.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {earlierPayments.map((item) => (
+                    <PaymentStatus
+                      key={item.payment.orderId}
+                      payment={item.payment}
+                      busy={busy}
+                      sku={item.sku}
+                      historical
+                      onCapture={() => undefined}
+                      onVoid={() => undefined}
+                      onSaveRoom={() => undefined}
+                    />
+                  ))}
+                </div>
               ) : null}
             </div>
           </div>
@@ -767,54 +790,6 @@ export function Workspace({
   );
 }
 
-function PaymentPanel({
-  payment,
-  busy,
-  sku,
-  onCapture,
-  onVoid,
-  onSaveRoom,
-}: {
-  payment: PaymentView;
-  busy: string | null;
-  sku: string;
-  onCapture: () => void;
-  onVoid: () => void;
-  onSaveRoom: () => void;
-}) {
-  const tone = paymentTones[payment.displayStatus] ?? paymentTones.PENDING;
-  const captured = payment.completed === true && payment.displayStatus === "CAPTURED" && Boolean(payment.captureId);
-  const authorized = payment.ledgerStatus === "AUTHORIZED" && payment.completed !== true;
-  return (
-    <div className={`mt-4 rounded-xl border p-4 text-base ${tone}`}>
-      <p className="font-semibold tracking-wide">{captured ? "CAPTURED" : payment.displayStatus}</p>
-      <p className="mt-1 leading-7">{payment.message}</p>
-      <p className="mt-2">Amount {formatUsd(payment.amountMinor)}</p>
-      <p>PayPal order {payment.orderId}</p>
-      {payment.authorizationId ? <p>Authorization {payment.authorizationId}</p> : null}
-      {captured && payment.captureId ? <p>Capture {payment.captureId}</p> : null}
-      {authorized ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" className="min-h-11 rounded-full bg-ink px-4 text-sm text-paper" disabled={busy !== null} onClick={onCapture}>
-            {busy === `${sku}:capture` ? "Checking, then capturing…" : "Capture payment"}
-          </button>
-          <button type="button" className="min-h-11 rounded-full border border-current px-4 text-sm" disabled={busy !== null} onClick={onSaveRoom}>
-            Save corrected room
-          </button>
-          <button type="button" className="min-h-11 rounded-full border border-current px-4 text-sm" disabled={busy !== null} onClick={onVoid}>
-            {busy === `${sku}:void` ? "Voiding…" : "Void authorization"}
-          </button>
-        </div>
-      ) : null}
-      {authorized ? (
-        <p className="mt-3 text-sm leading-6">
-          To block a purchase, change the room width to 100 cm, save the corrected room, then capture. SpaceProof
-          rechecks the assessment and voids the authorization if the desk no longer fits.
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
 function Field({
   id,
@@ -860,15 +835,6 @@ function centimetersToMillimeters(value: string): number | null {
   if (!Number.isSafeInteger(centimeters)) return null;
   const millimeters = centimeters * 10;
   return Number.isSafeInteger(millimeters) ? millimeters : null;
-}
-
-function millimeterHint(value: string): string {
-  const millimeters = centimetersToMillimeters(value);
-  return millimeters === null ? "invalid" : `${millimeters} mm`;
-}
-
-function formatLength(millimeters: number): string {
-  return millimeters % 10 === 0 ? `${millimeters / 10} cm` : `${millimeters} mm`;
 }
 
 function isPaymentView(value: Partial<PaymentView>): value is PaymentView {

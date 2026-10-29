@@ -65,6 +65,7 @@ export function PlacementEditor({
   box,
   obstacles,
   drawing,
+  measurementLabel,
   onDrawingChange,
   onBoxChange,
 }: {
@@ -72,6 +73,7 @@ export function PlacementEditor({
   box: NormBox | null;
   obstacles: NormBox[];
   drawing: boolean;
+  measurementLabel?: string | null;
   onDrawingChange: (drawing: boolean) => void;
   onBoxChange: (box: NormBox) => void;
 }) {
@@ -143,12 +145,17 @@ export function PlacementEditor({
       >
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="Uploaded room" className="block h-auto w-full select-none" draggable={false} />
+          <img src={imageUrl} alt="Uploaded room" className="block h-auto max-h-[36rem] w-full object-contain select-none" draggable={false} />
         ) : (
-          <div className="flex min-h-56 items-center justify-center px-6 text-center text-base text-ink/70">
+          <div className="flex min-h-72 items-center justify-center px-6 text-center text-base leading-7 text-ink/70 sm:min-h-[28rem]">
             Upload a room photo to propose a desk area. The photo will not be measured.
           </div>
         )}
+        {measurementLabel ? (
+          <p className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-ink shadow-sm">
+            {measurementLabel}
+          </p>
+        ) : null}
         {imageUrl
           ? obstacles.map((obstacle, index) => (
               <div
@@ -179,7 +186,7 @@ export function PlacementEditor({
               if (event.key === "ArrowUp") nudge(0, -step);
               if (event.key === "ArrowDown") nudge(0, step);
             }}
-            className="absolute cursor-move border-2 border-teal bg-teal/20"
+            className="absolute cursor-move border-2 border-teal bg-teal/25"
             style={{
               left: `${shown.minX * 100}%`,
               top: `${shown.minY * 100}%`,
@@ -187,6 +194,9 @@ export function PlacementEditor({
               height: `${(shown.maxY - shown.minY) * 100}%`,
             }}
           >
+            <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-medium text-teal">
+              Desk area
+            </span>
             {(["nw", "ne", "sw", "se"] as const).map((handle) => (
               <button
                 key={handle}

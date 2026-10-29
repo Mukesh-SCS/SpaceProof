@@ -1,0 +1,47 @@
+{
+  "observed_at": "2026-10-28T20:07:00Z",
+  "environment": "sandbox",
+  "api_base": "https://api-m.sandbox.paypal.com",
+  "source": "Buyer approved the PayPal button in the SpaceProof UI. Statuses below were read from PayPal after that approval, not taken from the button callback.",
+  "order": {
+    "http": 200,
+    "id": "8NN90589CS658724M",
+    "status": "COMPLETED",
+    "intent": "AUTHORIZE",
+    "amount": "129.00",
+    "currency_code": "USD",
+    "reference_id": "DESK-NOOK-100"
+  },
+  "authorization": {
+    "http": 200,
+    "id": "93V392390C594062Y",
+    "status": "CAPTURED",
+    "amount": "129.00",
+    "currency_code": "USD"
+  },
+  "capture": {
+    "http": 200,
+    "id": "66M90673NA362091J",
+    "status": "COMPLETED",
+    "final_capture": true,
+    "amount": "129.00",
+    "currency_code": "USD"
+  },
+  "local_ledger": {
+    "ledgerStatus": "COMPLETED",
+    "providerStatus": "COMPLETED",
+    "intentStatus": "CAPTURED",
+    "amountMinor": 12900,
+    "currency": "USD"
+  },
+  "duplicate_capture": {
+    "http": 200,
+    "completed": true,
+    "captureId": "66M90673NA362091J",
+    "message": "This payment was already verified.",
+    "note": "The server returned the stored capture. PayPal still shows one capture on the order."
+  },
+  "not_observed": [
+    "A provider void of an uncaptured authorization"
+  ]
+}

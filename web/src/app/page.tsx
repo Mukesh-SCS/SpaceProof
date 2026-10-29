@@ -7,17 +7,14 @@ import type { CatalogProduct } from "@/lib/geometry/fit";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col px-4 py-8 sm:px-6">
-      <header className="mb-8">
+    <main className="mx-auto flex w-full max-w-[90rem] flex-col px-4 py-6 sm:px-6 lg:py-8">
+      <header className="mb-6">
         <div className="ruler mb-4" aria-hidden />
         <p className="text-xs font-medium tracking-[0.18em] text-teal uppercase">PayPal sandbox · desks only</p>
-        <h1 className="font-display mt-2 text-4xl text-ink sm:text-5xl">SpaceProof</h1>
-        <p className="mt-3 max-w-2xl text-lg text-ink/80">Verify before you pay.</p>
-        <p className="mt-2 max-w-3xl text-base leading-7 text-ink/75">
-          Upload a room photo, confirm the real width and depth, and let the server decide which desks fit. PayPal
-          can authorize a payment only after that decision is FIT. Capture happens later, after a fresh check. A
-          photograph is not a measurement, and a fit result is not a guarantee of physical compatibility.
-        </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+          <h1 className="font-display text-4xl text-ink sm:text-5xl">SpaceProof</h1>
+          <p className="max-w-xl text-base leading-6 text-ink/75">Verify before you pay. Confirm the room, then let the server decide which desk can be authorized.</p>
+        </div>
       </header>
       <Suspense fallback={<p className="text-ink/70">Loading the desk catalog…</p>}>
         <Catalog />

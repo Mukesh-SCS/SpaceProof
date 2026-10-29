@@ -2,7 +2,7 @@
 
 **Verify before you pay.**
 
-> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. Two sandbox orders were created and read back as `CREATED`. Buyer approval, capture, and void have not been observed, because that step needs a sandbox buyer login. The vision service does not measure photographs.
+> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. One sandbox buyer approved Nook Desk and PayPal capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. A live void of an uncaptured authorization has not been observed. The vision service does not measure photographs.
 
 SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
 
@@ -44,6 +44,14 @@ The buyer approves PayPal **after** the initial fit check. The server authorizes
 
 Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v2 authorization endpoints. Immediate Orders v2 `CAPTURE` is not the purchase flow.
 
+## Using the page
+
+The buyer moves through four steps: upload a room, confirm measurements, verify desks, and approve PayPal. The room photo is the main workspace. The controls beside it are the shopping request, budget, clearance, and measurement confirmation. A step is marked done only after that part of the page has real state: a photo, a confirmation checkbox, a current server assessment, or a captured or voided payment.
+
+Desks appear as comparison cards. Before every desk has been checked, the page shows a short list. After a check, it shows the desks that fit, the selected desk, and a control to view the rest. Filters are All, Fits, Does not fit, and Uncertain. Cards use a simple dimension drawing because the catalog has no licensed product photos.
+
+Selecting a desk opens the fit evidence beside checkout. The verdict, room size, desk size, clearance, and budget are in centimeters and dollars. Technical reasons stay inside “View verification details.” PayPal opens only for a current server result of `FIT` after the buyer approves the catalog price. A desk that does not fit, an uncertain measurement, or a changed room keeps checkout closed. The payment panel shows the status returned by the server, such as `AUTHORIZED`, `CAPTURED`, or `VOIDED`. It does not mark the other statuses complete.
+
 ## MVP scope
 
 ### Required
@@ -56,7 +64,7 @@ Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v
 - [x] A natural-language request can propose a budget and clearance. The buyer must apply and confirm those values.
 - [x] `FIT`, `DOES_NOT_FIT`, and `UNCERTAIN` decisions with reasons and a policy fingerprint.
 - [x] Buyer review of the catalog SKU and price before PayPal approval.
-- [ ] Real sandbox buyer approval. An authorize-intent order was created and read back. Capture and void of a live authorization were not observed.
+- [x] Real sandbox buyer approval and a verified capture for Nook Desk, USD 129.00. A live void of an uncaptured authorization has not been observed.
 - [ ] PayPal webhook verification.
 - [x] Responsive interface with a 2D footprint, loading, error, and payment states. A receipt is shown only after a verified capture.
 - [x] Automated geometry and payment-policy tests. PayPal is mocked.
@@ -258,7 +266,8 @@ Automated tests mock PayPal. They do not prove a live sandbox payment.
 - [x] A changed room version blocks checkout. After `PATCH /api/rooms/{id}` moved a room from version 1 to version 2, order creation returned HTTP 403 `STALE_ASSESSMENT`.
 - [x] Mocked tests cover authorization without capture, a single capture, a duplicate capture that does not call PayPal again, void of an uncaptured authorization, and canceled or declined results that are not completed.
 - [x] Two `FIT` assessments created sandbox orders `4JY697996K476130H` and `4T750388D0073720Y`. Both were read back with intent `AUTHORIZE`, status `CREATED`, and amount `USD 129.00`.
-- [ ] Buyer approval has not happened. Authorizing `4T750388D0073720Y` before approval returned HTTP 409 `NOT_APPROVED`. Two capture attempts returned HTTP 409 `NOT_AUTHORIZED` and were not sent to PayPal. No authorization id, capture id, or void has been observed.
+- [x] A sandbox buyer approved a separate FIT order. PayPal order `8NN90589CS658724M` was read back as status `COMPLETED`, intent `AUTHORIZE`, amount `USD 129.00`, reference `DESK-NOOK-100`. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` is `COMPLETED` and `final_capture: true`. The local ledger is `COMPLETED` for 12900 cents. A second capture request returned the stored capture and did not create another PayPal capture.
+- [ ] Orders `4JY697996K476130H` and `4T750388D0073720Y` are still `CREATED`. Authorizing `4T750388D0073720Y` before approval returned HTTP 409 `NOT_APPROVED`. No live void of an uncaptured authorization has been observed.
 - [ ] Webhooks are not implemented.
 
 ## Evaluation
@@ -269,7 +278,7 @@ On October 28, 2026, model `nvidia/Nemotron-3.5-Super-VL` returned a placement b
 
 A later single-image call on `eval/images/room-01-corner.jpg` succeeded in 3278 ms. PayPal was not involved. Reported usage was 935 prompt tokens, 1075 completion tokens, of which 779 were reasoning tokens, and 2010 total tokens. `dimensions_mm` stayed null. The redacted record is `eval/evidence/nebius-room-01-corner-20261028T195945Z.json`.
 
-Still not measured: calibration error against a real room, false `FIT` rate on photographed apartments, and a completed sandbox capture.
+Still not measured: calibration error against a real room, false `FIT` rate on photographed apartments, and a live void of an uncaptured authorization.
 
 ## Build milestones and Cursor working instructions
 
@@ -277,23 +286,23 @@ Still not measured: calibration error against a real room, false `FIT` rate on p
 
 - [x] Scaffold the monorepo and local PostgreSQL. Migration `20261028180206_init` applied and both desks seeded.
 - [x] Deterministic fit checker for one rectangular space and two desks.
-- [ ] Actual PayPal Sandbox buyer approval and verified capture. Orders `4JY697996K476130H` and `4T750388D0073720Y` are still `CREATED`. The buyer has not approved either one.
+- [x] Actual PayPal Sandbox buyer approval and verified capture. Order `8NN90589CS658724M`, authorization `93V392390C594062Y`, capture `66M90673NA362091J`, USD 129.00, capture status `COMPLETED`.
 - [x] Block order creation for a failed fit assessment. Verified with HTTP 403 `NOT_ELIGIBLE`.
 
-**Exit gate still open:** one live fit → buyer approval → verified capture has not been observed.
+**Exit gate:** the live fit → buyer approval → verified capture path was observed on October 28, 2026. A live void is still open.
 
 ### Milestone 2: spatial product
 
 - [x] Room photo upload, buyer-entered measurements, and a user-correctable placement rectangle.
 - [x] Nebius vision-language integration and Pydantic validation. The model does not supply millimeters.
 - [x] Twelve fictional desks, with fit reasons from the geometry engine.
-- [ ] A completed sandbox authorization, capture, or void. Buyer approval is still required.
+- [x] A completed sandbox authorization and capture for Nook Desk, USD 129.00. A live void is still required.
 
 ### Milestone 3: November 4–7, payment lifecycle
 
 The authorize, capture, and void code is in the app and covered by mocked tests. These items are not fully done:
 
-- [ ] Live buyer approval against PayPal Sandbox.
+- [x] Live buyer approval, authorization, and verified capture against PayPal Sandbox. Live void is still open.
 - [x] Purchase intent, idempotency keys, and PayPal read-back in code. Webhook verification is not implemented.
 - [x] Mocked tests for success, decline, cancel, duplicate capture, stale assessment, and void. Not a live sandbox integration test.
 
@@ -329,7 +338,7 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 - **Live demo:** Not deployed yet
 - **Demo video:** Not recorded yet
 - **Source:** https://github.com/Mukesh-SCS/SpaceProof
-- **PayPal integration:** Sandbox orders `4JY697996K476130H` and `4T750388D0073720Y` were created and read back as authorize-intent, status `CREATED`, amount `USD 129.00`. Buyer approval, capture, and void are still pending.
+- **PayPal integration:** Sandbox order `8NN90589CS658724M` was buyer-approved. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. Void of an uncaptured authorization is still pending.
 
 ## License and attribution
 

@@ -1,6 +1,6 @@
 # What is implemented
 
-October 28, 2026. This note records what was observed. It is not a claim that capture or void has been completed in the PayPal sandbox.
+October 28, 2026. This note records what was observed. One sandbox capture was read back from PayPal. A live void has not been completed.
 
 ## Working locally
 
@@ -23,6 +23,7 @@ Recorded in `eval/evidence/paypal-sandbox-20261028.json`. No secrets are in that
 - Authorizing that order before buyer approval returned HTTP 409 `NOT_APPROVED`. Capture was not sent to PayPal. A second capture attempt returned the same refusal.
 - A 140 cm desk in a 100 cm room returned `DOES_NOT_FIT`, and order creation returned HTTP 403 `NOT_ELIGIBLE` with no PayPal order id.
 - After the room moved from version 1 to version 2, order creation for the old assessment returned HTTP 403 `STALE_ASSESSMENT`.
+- A sandbox buyer approved a later Nook Desk order in the UI. PayPal then returned order `8NN90589CS658724M` as `COMPLETED` with intent `AUTHORIZE` and amount `USD 129.00`. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` is `COMPLETED`, `final_capture: true`, USD 129.00. The local ledger is `COMPLETED` for 12900 cents. A repeat capture returned that stored capture. Evidence: `eval/evidence/paypal-sandbox-capture-20261028T2007Z.json`.
 
 ## Observed against Nebius
 
@@ -32,6 +33,6 @@ Model `nvidia/Nemotron-3.5-Super-VL` at `api.tokenfactory.us-north1.nebius.com`.
 
 ## Not observed
 
-- A sandbox buyer login, so no authorization id, capture id, or void of a live authorization.
+- A void of an uncaptured live authorization. The completed capture above cannot be used for that test.
 - Webhook signature verification.
 - A photograph of a measured apartment. The evaluation images are synthetic diagrams.

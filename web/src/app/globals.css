@@ -39,3 +39,8 @@ body {
   outline: 2px solid var(--color-teal);
   outline-offset: 2px;
 }
+
+button,
+summary {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}

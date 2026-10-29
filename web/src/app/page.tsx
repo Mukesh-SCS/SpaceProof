@@ -13,7 +13,10 @@ export default function HomePage() {
         <p className="text-xs font-medium tracking-[0.18em] text-teal uppercase">PayPal sandbox · demo catalog</p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-display text-4xl text-ink sm:text-5xl">SpaceProof</h1>
-          <p className="max-w-xl text-base leading-6 text-ink/75">Verify before you pay. Confirm the measured area, then let the server decide what can be authorized.</p>
+          <p className="max-w-xl text-base leading-6 text-ink/75">
+            A product can look right in a photo and still fail the space you have. Confirm the area in feet and inches.
+            The server checks fit, clearance, and budget before PayPal can authorize it.
+          </p>
         </div>
       </header>
       <Suspense fallback={<p className="text-ink/70">Loading the desk catalog…</p>}>

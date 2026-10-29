@@ -1,6 +1,9 @@
+import { rateLimitedResponse } from "@/lib/rate-limit";
 import { forwardVisionJson } from "@/lib/vision/proxy";
 
 export async function POST(request: Request) {
+  const limited = rateLimitedResponse(request, "vision-preferences", 20);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();

@@ -2,7 +2,7 @@
 
 **Verify before you pay.**
 
-> **Status: local prototype, updated October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. One sandbox buyer approved Nook Desk and PayPal capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. A live void of an uncaptured authorization has not been observed. The vision service does not measure photographs.
+> **Status: hosted demo, reviewed October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. One sandbox buyer approved Nook Desk and PayPal capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. The repository does not contain a PayPal read-back for a void of an uncaptured authorization. The vision service does not measure photographs. The public site is https://spaceproof.onrender.com/.
 
 SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
 
@@ -15,6 +15,8 @@ Online shoppers can judge a desk's appearance and price but still choose an item
 **Our question:** Can an AI shopping agent use visual scene understanding and explicit geometric constraints to reject unsuitable furniture before payment?
 
 **Target user:** A person furnishing a small apartment or home office.
+
+A generic image question-answering tool can describe a room. It cannot keep a catalog price, a room version, and a PayPal authorization in agreement. SpaceProof uses Nebius only to propose a placement region and to read a shopping sentence. Deterministic code decides fit. PayPal authorizes, captures, or voids.
 
 **MVP scenario:** Confirm a room, a clearance, and a budget, then accept only a desk the server marks `FIT`. The running demo defaults to 7.87 in of side clearance and 7.87 in of depth clearance so a 3 ft 3.37 in desk can pass in a 4 ft 11.06 in room. Clearance is an input, not a hidden assumption. The page shows feet and inches. Fit checks still use the stored millimeters.
 
@@ -43,6 +45,16 @@ flowchart TD
 The buyer approves PayPal **after** the initial fit check. The server authorizes that order, then revalidates before capture. An authorization is a temporary hold, **not escrow**, and it is not a completed payment. Sandbox currency is USD and no real money moves.
 
 Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v2 authorization endpoints. Immediate Orders v2 `CAPTURE` is not the purchase flow.
+
+## What the page looks like
+
+These screenshots are from the local app on October 28, 2026, after confirming the demo preset and checking the catalog. They are not a PayPal receipt.
+
+![SpaceProof introduction](docs/submission/screenshots/desktop-intro.png)
+
+![Studio Desk blocked before PayPal](docs/submission/screenshots/not-eligible.png)
+
+![Catalog on a phone-width layout](docs/submission/screenshots/mobile-catalog.png)
 
 ## Using the page
 
@@ -242,7 +254,7 @@ python -m pytest
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-`npx prisma migrate dev` applied `20261028180206_init` and `20261028190753_scene_placement`. `npm run db:seed` loads 12 desks, including `DESK-NOOK-100` and `DESK-STUDIO-140`. On October 28, 2026, `npm test` passed 36 tests and vision `pytest` passed 14 tests. The vision health check returned OpenCV 5.0.0, `"image_measurement": false`, and model id `nvidia/Nemotron-3.5-Super-VL`.
+`npx prisma migrate dev` applied `20261028180206_init` and `20261028190753_scene_placement`. `npm run db:seed` loads 12 desks and 4 compact dining tables, including `DESK-NOOK-100` and `DESK-STUDIO-140`. On October 28, 2026, `npm test` passed 69 tests and vision `pytest` passed 20 tests. The hosted vision health check returned OpenCV 5.0.0, `"image_measurement": false`, and model id `nvidia/Nemotron-3.5-Super-VL`.
 
 `node_modules` and `vision/.venv` were already present, so `npm install` and virtualenv creation were not repeated on the last run. `pip install -r requirements.txt` installed FastAPI, Uvicorn, OpenCV, pytest, and the OpenAI client used to call Nebius. A fresh clone should still run the full command list above.
 
@@ -312,15 +324,15 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 
 - [x] Ten original diagrams, one real Nebius run, and recorded overlap. Not a physical calibration study.
 - [x] Responsive 2D placement preview, loading and error states, and explanations for fit and payment status. A capture receipt appears only after the server verifies a capture.
-- [ ] Hosted demo using sandbox credentials.
+- [x] Hosted demo at https://spaceproof.onrender.com/ with the vision service at https://spaceproof-vision.onrender.com/health. The Render Postgres plan and its expiration date were not visible from the public site.
 
 ### Milestone 5: November 11–12, submission
 
 - [x] Apache-2.0 `LICENSE` is already at the repository root.
 - [x] Setup and test commands in this README were run locally on October 28, 2026.
-- [ ] Public hosted demonstration.
-- [ ] Under-three-minute public YouTube video.
-- [ ] Devpost project description.
+- [x] Public hosted demonstration: https://spaceproof.onrender.com/
+- [ ] Under-three-minute public YouTube video. The script is `docs/submission/demo-script.md`. It has not been recorded.
+- [ ] Published Devpost project. The draft is `docs/submission/devpost.md`.
 
 **Submission deadline:** November 12, 2026, 3:00 PM EST (12:00 PM PST). The demo should remain free and available throughout judging, which ends December 15, 2026.
 
@@ -337,10 +349,11 @@ The authorize, capture, and void code is in the app and covered by mocked tests.
 
 ## Hackathon submission links
 
-- **Live demo:** Not deployed yet
-- **Demo video:** Not recorded yet
+- **Live demo:** https://spaceproof.onrender.com/
+- **Vision health:** https://spaceproof-vision.onrender.com/health
+- **Demo video:** Not recorded yet. Use `docs/submission/demo-script.md`.
 - **Source:** https://github.com/Mukesh-SCS/SpaceProof
-- **PayPal integration:** Sandbox order `8NN90589CS658724M` was buyer-approved. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. Void of an uncaptured authorization is still pending.
+- **PayPal integration:** Sandbox order `8NN90589CS658724M` was buyer-approved. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. No void read-back is stored in `eval/evidence/`.
 
 ## License and attribution
 

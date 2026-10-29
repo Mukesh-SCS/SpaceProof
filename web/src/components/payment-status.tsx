@@ -32,7 +32,8 @@ export function PaymentStatus({
   return (
     <div className={`rounded-2xl border p-4 ${tone}`}>
       <p className="text-xs font-medium tracking-wide uppercase">{historical ? "Earlier transaction" : "This checkout"}</p>
-      <p className="mt-1 text-lg font-semibold">{view.status}</p>
+      <p className="mt-1 text-lg font-semibold">{view.buyerLabel}</p>
+      <p className="text-xs tracking-wide text-ink/55 uppercase">PayPal status {view.status}</p>
       <p className="mt-2 text-sm leading-6">{payment.message}</p>
       <p className="mt-3 text-sm">Amount {view.amount}</p>
       <p className="text-sm">PayPal order {payment.orderId}</p>

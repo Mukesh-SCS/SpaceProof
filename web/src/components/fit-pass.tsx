@@ -1,5 +1,5 @@
 import type { AssessmentResponse } from "@/lib/api-types";
-import { categoryLabel } from "@/components/experience";
+import { categoryLabel, paymentBuyerLabel } from "@/components/experience";
 import { FitResult } from "@/components/fit-result";
 import { confirmationStatement } from "@/lib/scene-freshness";
 
@@ -53,7 +53,7 @@ export function FitPass({
           </dd>
         </div>
       </dl>
-      {paymentStatus ? <p className="text-sm text-ink/75">Linked payment status: {paymentStatus}</p> : null}
+      <p className="text-sm text-ink/75">Linked payment: {paymentBuyerLabel(paymentStatus)}</p>
       {!current ? (
         <p className="text-sm leading-6 text-uncertain">
           The photograph, placement, or measurements changed after this check. PayPal stays closed until the server stores a new FitPass.

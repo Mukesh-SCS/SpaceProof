@@ -1,11 +1,14 @@
 import { createCheckoutRepository } from "@/lib/db/checkout-repo";
 import { createPayPalOrder } from "@/lib/paypal/orders";
 import { createPayPalGateway } from "@/lib/paypal/gateway";
+import { rateLimitedResponse } from "@/lib/rate-limit";
 
 const repo = createCheckoutRepository();
 const gateway = createPayPalGateway();
 
 export async function POST(request: Request) {
+  const limited = rateLimitedResponse(request, "paypal-orders", 10);
+  if (limited) return limited;
   let payload: unknown;
   try {
     payload = await request.json();

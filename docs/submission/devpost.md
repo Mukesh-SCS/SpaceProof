@@ -1,28 +1,32 @@
 # SpaceProof — Devpost draft
 
-Do not publish this draft until the hosted demo, the video, and a live void are finished.
+Do not publish this until the owner records the video and confirms the Render Postgres plan will last through December 15, 2026.
 
 ## Project
 
 SpaceProof: Verify Before You Pay
 
-A buyer shopping for a desk or a compact dining table confirms the usable floor area. Nebius proposes a placement region on the photograph. A deterministic checker decides whether that item fits the confirmed centimeters, clearance, and budget. PayPal Sandbox authorizes the catalog price. SpaceProof revalidates the same evidence before capture, and voids the authorization when the constraints no longer hold.
+A product can look perfect in a photo but still fail a buyer's actual constraints. SpaceProof connects an editable AI suggestion to a verified purchase decision.
 
 ## Problem
 
-Furniture that looks right online often does not fit the corner it was bought for. A chat reply or a product photo cannot safely approve the charge. The buyer needs to see the checked constraints before money moves, and the payment should stop if those constraints change.
+Someone buying a desk or a compact dining table can see the style and the price and still order an item that does not fit the corner, leaves no walking room, or costs more than they meant to spend. A chat reply cannot safely approve the charge.
 
 ## Who it is for
 
-Someone buying one piece of small-space furniture for a measured opening: a desk or a compact dining table. SpaceProof is a demo merchant, not a multi-store marketplace.
+A person furnishing one measured opening in a small apartment or home office. SpaceProof is a demo merchant, not a multi-store marketplace.
 
 ## What is different
 
-The model may suggest where to place the item and what the buyer asked for. It cannot set a millimeter, a price, or a fit result. The server owns those decisions. PayPal authorization is a temporary hold. Capture happens only after the stored assessment still matches the room, the product, and the catalog price.
+Nebius `nvidia/Nemotron-3.5-Super-VL` proposes a placement region and can read a shopping sentence. It does not measure the photograph, set a price, or return `FIT`. The server compares catalog millimeters with the buyer's confirmed feet and inches, clearance, and budget. PayPal Sandbox creates an `AUTHORIZE` order for the catalog price. Capture happens only after that evidence is checked again. If the room changed, the server voids the uncaptured authorization when PayPal confirms the void.
 
-## Architecture
+## Try it
 
-Next.js holds the buyer flow, the fit policy, and the PayPal calls. FastAPI and OpenCV prepare the photograph. Nebius Token Factory model `nvidia/Nemotron-3.5-Super-VL` returns a placement region and a shopping interpretation. PostgreSQL stores the catalog, the room version, the FitPass assessment, and the payment ledger.
+- App: https://spaceproof.onrender.com/
+- Vision health: https://spaceproof-vision.onrender.com/health
+- Source: https://github.com/Mukesh-SCS/SpaceProof
+
+Use Sample room if you do not have a photograph. The sample is a drawing. Enter or confirm feet and inches yourself. PayPal stays closed until the server stores `FIT`.
 
 ## PayPal APIs used
 
@@ -30,22 +34,18 @@ Sandbox only.
 
 - Orders v2, intent `AUTHORIZE`
 - Payments v2 authorization capture
-- Payments v2 authorization void, implemented and covered by mocked tests
+- Payments v2 authorization void
 
-Observed on October 28, 2026: order `8NN90589CS658724M`, authorization `93V392390C594062Y`, capture `66M90673NA362091J`, status `COMPLETED`, USD 129.00, SKU `DESK-NOOK-100`. A live void of an uncaptured authorization has not been observed. Webhooks are not implemented.
+Observed and stored: order `8NN90589CS658724M`, authorization `93V392390C594062Y`, capture `66M90673NA362091J`, status `COMPLETED`, USD 129.00, SKU `DESK-NOOK-100`. The repository does not contain a PayPal read-back of a void. Mocked tests cover void. Webhooks are not implemented.
 
 ## Nebius
 
-One recorded call on a synthetic diagram returned a placement box, null dimensions, 3278 ms, and 2010 tokens. The ten-diagram overlap scores are visual overlap with painted floors, not physical accuracy. A licensed real-room evaluation set has not been built.
+One recorded call on `eval/images/room-01-corner.jpg` returned a placement box, null dimensions, 3278 ms, and 2010 tokens. Ten synthetic diagrams are scored by overlap with painted floors in `eval/results.json`. That overlap is not physical accuracy.
 
 ## Limitations
 
 - The photograph is not a measurement.
-- FitPass is a record of checked constraints, not a guarantee that the item will fit a real room.
+- FitPass records checked constraints. It does not guarantee that furniture will fit a real room.
 - Delivery, doorways, and installation are not checked.
-- The public demo and the demo video are not finished.
-- Live void and webhook verification are not finished.
-
-## Setup
-
-See the repository README. Local PostgreSQL comes from Docker Compose. PayPal and Nebius secrets stay in uncommitted `.env` files. Do not deploy live PayPal credentials.
+- The demo video is not recorded.
+- A free Render Postgres database expires 30 days after creation. Confirm the plan before judging.

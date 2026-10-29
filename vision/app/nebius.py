@@ -111,7 +111,12 @@ class NebiusVisionClient:
         self._secret = settings.api_key
         self.last_latency_ms: int | None = None
         self.last_usage: dict[str, int | None] | None = None
-        self._client = OpenAI(base_url=f"{settings.base_url}/", api_key=settings.api_key)
+        self._client = OpenAI(
+            base_url=f"{settings.base_url}/",
+            api_key=settings.api_key,
+            timeout=45.0,
+            max_retries=0,
+        )
 
     def complete(self, messages: list[dict[str, object]], max_tokens: int) -> str:
         started = time.perf_counter()

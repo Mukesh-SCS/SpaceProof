@@ -1,3 +1,4 @@
+import { rateLimitedResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db/prisma";
 import { explanationsForTrustedProducts, type ModelRanking, type TrustedDesk } from "@/lib/vision/rank";
 import { forwardVisionJson } from "@/lib/vision/proxy";
@@ -11,6 +12,8 @@ function reasonCodes(value: unknown): string[] {
 }
 
 export async function POST(request: Request) {
+  const limited = rateLimitedResponse(request, "vision-rank", 20);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();

@@ -146,8 +146,20 @@ export function checkoutClosedReason(input: {
   return null;
 }
 
+export function paymentBuyerLabel(status: string | null): string {
+  if (status === "AUTHORIZED") return "Authorized";
+  if (status === "CAPTURED") return "Captured";
+  if (status === "VOIDED") return "Voided";
+  if (status === "CREATED" || status === "PENDING") return "Awaiting approval";
+  if (status === "CANCELED") return "Cancelled";
+  if (status === "FAILED") return "Declined";
+  if (!status) return "Not eligible";
+  return status;
+}
+
 export function paymentPresentation(payment: PaymentView): {
   status: string;
+  buyerLabel: string;
   settled: boolean;
   authorized: boolean;
   receipt: boolean;
@@ -158,6 +170,7 @@ export function paymentPresentation(payment: PaymentView): {
   const receipt = payment.completed === true && status === "CAPTURED" && Boolean(payment.captureId);
   return {
     status,
+    buyerLabel: paymentBuyerLabel(status),
     settled: receipt || status === "VOIDED" || status === "CANCELED" || status === "FAILED",
     authorized: payment.ledgerStatus === "AUTHORIZED" && payment.completed !== true,
     receipt,

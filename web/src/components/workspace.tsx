@@ -1040,7 +1040,8 @@ export function Workspace({
                 )
               ) : (
                 <div className="mt-4 rounded-2xl border border-nofit/30 bg-nofit/10 p-4 text-sm leading-6 text-nofit">
-                  <p>{closedReason}</p>
+                  <p className="font-semibold">Not eligible</p>
+                  <p className="mt-1">{closedReason}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <a href="#measurements" className="inline-flex min-h-11 items-center rounded-full border border-current px-4">
                       Correct measurements

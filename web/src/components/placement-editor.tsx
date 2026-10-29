@@ -202,7 +202,7 @@ export function PlacementEditor({
           />
         ) : (
           <div className="px-6 text-center text-base leading-7 text-ink/70">
-            Upload a room photo to propose a placement area. The photo will not be measured.
+            Upload a room photo, or choose Sample room. The photo suggests a placement area. It is not measured.
           </div>
         )}
         {imageUrl && imageFrame.width > 2 ? (
@@ -241,7 +241,13 @@ export function PlacementEditor({
                   if (event.key === "ArrowUp") nudge(0, -step, resize);
                   if (event.key === "ArrowDown") nudge(0, step, resize);
                 }}
-                className={`absolute border-2 ${drawing ? "pointer-events-none border-dashed border-ink bg-ink/10" : "cursor-move border-teal bg-teal/25"}`}
+                className={`absolute border-2 ${
+                  drawing
+                    ? "pointer-events-none border-dashed border-ink bg-ink/10"
+                    : regionLabel === "AI suggested"
+                      ? "cursor-move border-dashed border-uncertain bg-uncertain/25"
+                      : "cursor-move border-solid border-teal bg-teal/25"
+                }`}
                 style={boxStyle(shown)}
               >
                 <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-medium text-teal">

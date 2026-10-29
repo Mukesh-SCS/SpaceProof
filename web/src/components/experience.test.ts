@@ -130,7 +130,8 @@ describe("workspace presentation", () => {
       }),
     );
     expect(html).toContain("Upload a room photo");
-    expect(html).toContain("will not be measured");
+    expect(html).toContain("Sample room");
+    expect(html).toContain("not measured");
   });
 
   it("shows an authorized hold separately from a captured receipt and a void", () => {
@@ -144,6 +145,7 @@ describe("workspace presentation", () => {
         onSaveRoom: () => undefined,
       }),
     );
+    expect(authorized).toContain("Authorized");
     expect(authorized).toContain("AUTHORIZED");
     expect(authorized).toContain("not captured yet");
     expect(authorized).toContain("Capture payment");
@@ -165,6 +167,7 @@ describe("workspace presentation", () => {
         onSaveRoom: () => undefined,
       }),
     );
+    expect(captured).toContain("Captured");
     expect(captured).toContain("CAPTURED");
     expect(captured).toContain("CAP1");
     expect(captured).toContain("$129.00");
@@ -185,6 +188,7 @@ describe("workspace presentation", () => {
         onSaveRoom: () => undefined,
       }),
     );
+    expect(voided).toContain("Voided");
     expect(voided).toContain("VOIDED");
     expect(voided).toContain("Earlier transaction");
     expect(voided).toContain("No completed payment was recorded");

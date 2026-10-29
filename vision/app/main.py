@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.analysis import analyze_room_image, explain_trusted_products, interpret_shopping_request
 from app.config import read_settings
 from app.images import ImageRejected
+from app.limit import allow
 from app.nebius import (
     NebiusConfigError,
     NebiusError,
@@ -64,6 +65,24 @@ def nebius_not_configured(_request: Request, exc: NebiusConfigError) -> JSONResp
     )
 
 
+def _client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    host = forwarded.split(",")[0].strip()
+    if host:
+        return host
+    return request.client.host if request.client else "local"
+
+
+def _limited(request: Request, bucket: str) -> JSONResponse | None:
+    if allow(f"{bucket}:{_client_key(request)}", 20):
+        return None
+    return JSONResponse(
+        status_code=429,
+        content={"code": "RATE_LIMITED", "message": "Too many vision requests. Wait a moment and try again."},
+        headers={"Retry-After": "60"},
+    )
+
+
 def _provider_http(exc: NebiusError) -> JSONResponse:
     return JSONResponse(
         status_code=502,
@@ -109,9 +128,13 @@ def measure() -> None:
 
 @app.post("/analyze-room")
 def analyze_room(
+    request: Request,
     image: UploadFile = File(...),
     completer: VisionCompleter = Depends(get_completer),
 ) -> JSONResponse:
+    limited = _limited(request, "analyze")
+    if limited:
+        return limited
     data = image.file.read()
     try:
         analysis, width, height = analyze_room_image(data, image.content_type, image.filename, completer)
@@ -134,8 +157,12 @@ def analyze_room(
 @app.post("/interpret-request")
 def interpret_request(
     body: PreferenceBody,
+    request: Request,
     completer: VisionCompleter = Depends(get_completer),
 ) -> JSONResponse:
+    limited = _limited(request, "interpret")
+    if limited:
+        return limited
     try:
         preferences = interpret_shopping_request(body.request_text, completer)
     except NebiusConfigError as exc:
@@ -153,8 +180,12 @@ def interpret_request(
 @app.post("/rank-products")
 def rank_products(
     body: RankBody,
+    request: Request,
     completer: VisionCompleter = Depends(get_completer),
 ) -> JSONResponse:
+    limited = _limited(request, "rank")
+    if limited:
+        return limited
     trusted = [item.model_dump() for item in body.products]
     try:
         ranked = explain_trusted_products(body.request_text, trusted, completer)

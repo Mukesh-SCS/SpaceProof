@@ -14,6 +14,7 @@ export async function GET() {
       priceMinor: true,
       currency: true,
       available: true,
+      category: true,
     },
   });
   return Response.json({ products }, { headers: { "Cache-Control": "no-store" } });

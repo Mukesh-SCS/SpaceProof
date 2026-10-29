@@ -17,6 +17,7 @@ export interface AssessmentResponse {
   roomId: string | null;
   measurementVersion: number | null;
   policyFingerprint: string | null;
+  createdAt?: string | null;
   result: FitResult;
   reasons: FitReason[];
   explanation: string;

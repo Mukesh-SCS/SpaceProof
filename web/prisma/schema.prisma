@@ -21,7 +21,8 @@ model Product {
   heightMm   Int
   priceMinor Int
   currency   String
-  available  Boolean  @default(true)
+  available  Boolean         @default(true)
+  category   ProductCategory @default(desk)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -115,6 +116,11 @@ model PaymentTransaction {
   lastCheckedAt         DateTime       @default(now())
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
+}
+
+enum ProductCategory {
+  desk
+  dining_table
 }
 
 enum FitResult {

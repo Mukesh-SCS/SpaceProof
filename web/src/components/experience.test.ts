@@ -9,6 +9,7 @@ import {
   paymentPresentation,
   selectCatalog,
   verdict,
+  workflowState,
 } from "@/components/experience";
 import { FitResult } from "@/components/fit-result";
 import { PaymentStatus } from "@/components/payment-status";
@@ -30,7 +31,7 @@ function assessment(result: AssessmentResponse["result"]): AssessmentResponse {
     policyFingerprint: "fp",
     result,
     reasons: [{ code: "WIDTH_EXCEEDS_ROOM", message: "The desk is wider than the confirmed opening.", blocking: true }],
-    explanation: "Required width is 160 cm. The confirmed opening is 100 cm.",
+    explanation: "Required width is larger than the confirmed opening.",
     product: null,
     comparison: {
       requiredWidthMm: 1600,
@@ -93,11 +94,12 @@ describe("workspace presentation", () => {
     expect(view.shown.map((item) => item.sku)).toEqual(["A"]);
   });
 
-  it("renders fit, blocked, and uncertain evidence in centimeters", () => {
+  it("renders fit, blocked, and uncertain evidence in feet and inches", () => {
     for (const result of ["FIT", "DOES_NOT_FIT", "UNCERTAIN"] as const) {
       const html = renderToStaticMarkup(createElement(FitResult, { assessment: assessment(result) }));
       expect(html).toContain(verdict(result).label);
-      expect(html).toContain("100 cm");
+      expect(html).toContain("3 ft 3.37 in");
+      expect(html).toContain("7.87 in side");
       expect(html).toContain("$129.00");
       expect(html).toContain("View verification details");
       expect(html).not.toContain("WIDTH_EXCEEDS_ROOM");
@@ -107,7 +109,7 @@ describe("workspace presentation", () => {
   it("keeps checkout closed for a desk that does not fit and for a stale room", () => {
     expect(checkoutClosedReason({ result: "DOES_NOT_FIT", confirmed: true, sceneDirty: false, consented: true })).toMatch(/stays closed/);
     expect(checkoutClosedReason({ result: "UNCERTAIN", confirmed: false, sceneDirty: false, consented: false })).toMatch(/not confirmed/);
-    expect(checkoutClosedReason({ result: "FIT", confirmed: true, sceneDirty: true, consented: true })).toMatch(/Verify the desk again/);
+    expect(checkoutClosedReason({ result: "FIT", confirmed: true, sceneDirty: true, consented: true })).toMatch(/Verify the product again/);
     expect(STALE_ASSESSMENT_NOTICE).toMatch(/cannot capture a payment/);
   });
 
@@ -117,9 +119,14 @@ describe("workspace presentation", () => {
         imageUrl: null,
         box: null,
         obstacles: [],
-        drawing: false,
-        onDrawingChange: () => undefined,
+        tool: "move",
+        status: "Draw your space",
+        onToolChange: () => undefined,
         onBoxChange: () => undefined,
+        onClear: () => undefined,
+        onReset: () => undefined,
+        onConfirmArea: () => undefined,
+        onSuggest: () => undefined,
       }),
     );
     expect(html).toContain("Upload a room photo");
@@ -199,9 +206,43 @@ describe("workspace presentation", () => {
       }),
     );
     expect(html).toContain("Nook Desk");
-    expect(html).toContain("100 cm");
+    expect(html).toContain("3 ft 3.37 in");
+    expect(html).toContain("1 ft 9.65 in");
     expect(html).toContain("$129.00");
     expect(html).toContain("Not checked");
     expect(html).toContain("Select");
+    expect(html).toContain("Desk");
+  });
+
+  it("keeps payment status ahead of a stale fit result", () => {
+    expect(
+      workflowState({
+        uploading: false,
+        confirmed: true,
+        verifying: false,
+        selectedResult: "FIT",
+        selectedCurrent: false,
+        paymentStatus: "AUTHORIZED",
+      }),
+    ).toBe("AUTHORIZED");
+    expect(
+      workflowState({
+        uploading: false,
+        confirmed: false,
+        verifying: false,
+        selectedResult: null,
+        selectedCurrent: false,
+        paymentStatus: null,
+      }),
+    ).toBe("NEEDS_MEASUREMENTS");
+  });
+
+  it("filters the demo catalog by category without dropping the selected item", () => {
+    const catalog = [
+      { sku: "DESK-NOOK-100", category: "desk" as const },
+      { sku: "TABLE-CAFE-80", category: "dining_table" as const },
+    ];
+    const shown = selectCatalog(catalog, { "TABLE-CAFE-80": "DOES_NOT_FIT" }, "all", "TABLE-CAFE-80", true, "dining_table");
+    expect(shown.shown.map((item) => item.sku)).toEqual(["TABLE-CAFE-80"]);
   });
 });

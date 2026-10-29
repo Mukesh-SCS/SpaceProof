@@ -103,13 +103,48 @@ def test_nebius_error_is_reported(client: TestClient) -> None:
 
 
 def test_invalid_json_is_rejected(client: TestClient) -> None:
-    app.dependency_overrides[get_completer] = lambda: ScriptedCompleter("this is not json")
+    completer = ScriptedCompleter("this is not json")
+    app.dependency_overrides[get_completer] = lambda: completer
     response = client.post(
         "/analyze-room",
         files={"image": ("room.jpg", jpeg_bytes(), "image/jpeg")},
     )
     assert response.status_code == 422
     assert response.json()["code"] == "INVALID_MODEL_OUTPUT"
+    assert completer.calls == 2
+
+
+def test_truncated_json_can_be_closed_without_inventing_a_region() -> None:
+    text = (
+        '{"room_description": "A corner.", "placement_candidates": [], '
+        '"visible_obstacles": [], "measurement_questions": [], "warnings": ["No scale."]'
+    )
+    analysis = parse_room_analysis(text)
+    assert analysis.placement_candidates == []
+    assert analysis.dimensions_mm is None
+
+
+def test_one_retry_accepts_valid_json_after_invalid_output(client: TestClient) -> None:
+    class Once:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, messages: list[dict[str, object]], max_tokens: int) -> str:
+            self.calls += 1
+            if self.calls == 1:
+                return "not json"
+            return room_json()
+
+    completer = Once()
+    app.dependency_overrides[get_completer] = lambda: completer
+    response = client.post(
+        "/analyze-room",
+        files={"image": ("room.jpg", jpeg_bytes(), "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert completer.calls == 2
+    assert response.json()["placement_candidates"][0]["bbox_normalized"] == [0.1, 0.2, 0.6, 0.8]
+    assert response.json()["dimensions_mm"] is None
 
 
 def test_coordinates_outside_the_image_are_rejected() -> None:
@@ -168,6 +203,29 @@ def test_stated_budget_and_clearance_survive_a_blank_model_response() -> None:
     assert filled.depth_clearance_mm == 200
     assert filled.dimensions_mm is None
     assert all("budget" not in question.lower() for question in filled.unresolved_questions)
+
+
+def test_stated_inch_clearance_converts_with_25_point_4() -> None:
+    from app.parsing import apply_stated_constraints
+
+    blank = parse_preferences(
+        json.dumps(
+            {
+                "product_category": "desk",
+                "maximum_budget_usd": None,
+                "horizontal_clearance_cm": None,
+                "depth_clearance_cm": None,
+                "style_preferences": [],
+                "unresolved_questions": [],
+            }
+        )
+    )
+    filled = apply_stated_constraints(
+        "Find a desk under $180 for this corner and leave 8 in of clearance.",
+        blank,
+    )
+    assert filled.horizontal_clearance_mm == 203
+    assert filled.depth_clearance_mm == 203
 
 
 def test_requested_clearance_is_kept_and_room_size_is_not() -> None:

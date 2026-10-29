@@ -16,7 +16,7 @@ Online shoppers can judge a desk's appearance and price but still choose an item
 
 **Target user:** A person furnishing a small apartment or home office.
 
-**MVP scenario:** Confirm a room, a clearance, and a budget, then accept only a desk the server marks `FIT`. The running demo defaults to 20 cm of side clearance and 20 cm of depth clearance so a 100 cm desk can pass in a 150 cm room. Clearance is an input, not a hidden assumption.
+**MVP scenario:** Confirm a room, a clearance, and a budget, then accept only a desk the server marks `FIT`. The running demo defaults to 7.87 in of side clearance and 7.87 in of depth clearance so a 3 ft 3.37 in desk can pass in a 4 ft 11.06 in room. Clearance is an input, not a hidden assumption. The page shows feet and inches. Fit checks still use the stored millimeters.
 
 SpaceProof is **not** a guarantee that an object will fit based on a single photo. The MVP requires measurements, uses user-correctable placement boundaries, and returns `UNCERTAIN` when the evidence is insufficient. It validates the simple placement and clearance constraints it actually models; it does not certify doorway, staircase, delivery, structural, or assembly clearance.
 
@@ -46,11 +46,13 @@ Orders are created with `intent: AUTHORIZE`. Capture and void use the Payments v
 
 ## Using the page
 
-The buyer moves through four steps: upload a room, confirm measurements, verify desks, and approve PayPal. The room photo is the main workspace. The controls beside it are the shopping request, budget, clearance, and measurement confirmation. A step is marked done only after that part of the page has real state: a photo, a confirmation checkbox, a current server assessment, or a captured or voided payment.
+The buyer moves through three stages: understand the space, compare verified products, and review the FitPass before PayPal. The room photo is the main workspace. The controls beside it are the measurements, entered in feet and inches. A step is marked done only after that part of the page has real state: confirmed measurements, a current server assessment, or a captured or voided payment.
 
-Desks appear as comparison cards. Before every desk has been checked, the page shows a short list. After a check, it shows the desks that fit, the selected desk, and a control to view the rest. Filters are All, Fits, Does not fit, and Uncertain. Cards use a simple dimension drawing because the catalog has no licensed product photos.
+A new photograph clears confirmation. It does not reuse measurements that belonged to the previous picture, and it does not delete an earlier completed or voided payment. Moving the placement rectangle, editing a measurement, or saving a new room version marks existing fit results out of date. PayPal stays closed until the server stores a new assessment for that scene. The catalog check is one request, so every product in that check shares the same room version.
 
-Selecting a desk opens the fit evidence beside checkout. The verdict, room size, desk size, clearance, and budget are in centimeters and dollars. Technical reasons stay inside “View verification details.” PayPal opens only for a current server result of `FIT` after the buyer approves the catalog price. A desk that does not fit, an uncertain measurement, or a changed room keeps checkout closed. The payment panel shows the status returned by the server, such as `AUTHORIZED`, `CAPTURED`, or `VOIDED`. It does not mark the other statuses complete.
+The demo merchant catalog has the original 12 desks plus four fictional compact dining tables. Filters are All, Desks, and Dining tables, plus Fits, Does not fit, and Uncertain. Cards use a simple dimension drawing because the catalog has no licensed product photos.
+
+Selecting a product opens the FitPass beside checkout. The FitPass shows the SKU, category, buyer-confirmed feet and inches, clearance, budget, verdict, assessment version, and linked payment status. It records the constraints that were checked. It is not a physical certification. PayPal opens only for a current server result of `FIT` after the buyer approves the catalog price. A product that does not fit, an uncertain measurement, or a changed room keeps checkout closed. The payment panel shows the status returned by the server, such as `AUTHORIZED`, `CAPTURED`, or `VOIDED`. It does not mark the other statuses complete.
 
 ## MVP scope
 
@@ -59,8 +61,8 @@ Selecting a desk opens the fit evidence beside checkout. The verdict, room size,
 - [x] Photo upload and an editable placement rectangle. The sample diagram is an original drawing, not a measured apartment.
 - [x] Buyer-entered width, depth, clearance, and budget. The photograph does not supply those numbers.
 - [x] Nebius `nvidia/Nemotron-3.5-Super-VL` returns structured placement JSON. Physical dimensions are rejected.
-- [x] Deterministic geometry for **rectangular desk placement areas**, using buyer-entered measurements.
-- [x] Seed catalog of 12 fictional desks.
+- [x] Deterministic geometry for rectangular desks and compact dining tables, using buyer-entered measurements. A dining table with zero chair clearance on both axes stays `UNCERTAIN`. Doorway and delivery are not checked.
+- [x] Seed catalog of 12 fictional desks and 4 fictional compact dining tables. The catalog is labeled as a demo merchant catalog.
 - [x] A natural-language request can propose a budget and clearance. The buyer must apply and confirm those values.
 - [x] `FIT`, `DOES_NOT_FIT`, and `UNCERTAIN` decisions with reasons and a policy fingerprint.
 - [x] Buyer review of the catalog SKU and price before PayPal approval.
@@ -130,10 +132,10 @@ The catalog has 12 fictional desks. The two used in the payment scenarios are:
 
 | SKU | Size | Price |
 | --- | --- | --- |
-| `DESK-NOOK-100` | 100 cm wide, 55 cm deep | $129.00 |
-| `DESK-STUDIO-140` | 140 cm wide, 70 cm deep | $219.00 |
+| `DESK-NOOK-100` | 3 ft 3.37 in wide, 1 ft 9.65 in deep | $129.00 |
+| `DESK-STUDIO-140` | 4 ft 7.12 in wide, 2 ft 3.56 in deep | $219.00 |
 
-Default room: 150 cm by 120 cm, 20 cm side clearance, 20 cm depth clearance, $180 budget. That makes the Nook desk `FIT` and the Studio desk `DOES_NOT_FIT`. A 100 cm room makes the Studio desk fail on width.
+Default room: 4 ft 11.06 in by 3 ft 11.24 in, 7.87 in side clearance, 7.87 in depth clearance, $180 budget. Those fields display the stored 1500 mm by 1200 mm room and 200 mm clearances. That makes the Nook desk `FIT` and the Studio desk `DOES_NOT_FIT`. The narrower preset, 3 ft 3.37 in (1000 mm), makes the Studio desk fail on width.
 
 ## Purchase and payment safety rules
 
@@ -244,7 +246,7 @@ python -m uvicorn app.main:app --reload --port 8000
 
 `node_modules` and `vision/.venv` were already present, so `npm install` and virtualenv creation were not repeated on the last run. `pip install -r requirements.txt` installed FastAPI, Uvicorn, OpenCV, pytest, and the OpenAI client used to call Nebius. A fresh clone should still run the full command list above.
 
-Open `http://localhost:3000`. Confirm the measurements, choose the 100 cm room, and check the Studio desk: the server returns `DOES NOT FIT` and checkout stays closed. The 150 cm room and the Nook desk can return `FIT`. PayPal then creates an authorize-intent order for the catalog price. Capture stays unavailable until a sandbox buyer approves that order and the server authorizes it. Unconfirmed measurements return `UNCERTAIN`.
+Open `http://localhost:3000`. Confirm the measurements, choose the 3 ft 3.37 in room, and check the Studio desk: the server returns `DOES NOT FIT` and checkout stays closed. The 4 ft 11.06 in room and the Nook desk can return `FIT`. PayPal then creates an authorize-intent order for the catalog price. Capture stays unavailable until a sandbox buyer approves that order and the server authorizes it. Unconfirmed measurements return `UNCERTAIN`.
 
 ## Acceptance tests
 

@@ -1,6 +1,6 @@
 import type { AssessmentResponse } from "@/lib/api-types";
 import { formatUsd } from "@/lib/money";
-import { lengthLabel, verdict } from "@/components/experience";
+import { categoryLabel, inchesLabel, lengthLabel, verdict } from "@/components/experience";
 
 const tones = {
   FIT: "bg-fit/10 text-fit",
@@ -28,12 +28,12 @@ export function FitResult({ assessment }: { assessment: AssessmentResponse }) {
       <dl className="grid gap-3 sm:grid-cols-2">
         <Fact label="Room" value={`${lengthLabel(comparison.availableWidthMm)} wide · ${lengthLabel(comparison.availableDepthMm)} deep`} />
         <Fact
-          label="Desk with clearance"
+          label={`${categoryLabel(assessment.product?.category)} with clearance`}
           value={`${lengthLabel(comparison.requiredWidthMm)} wide · ${lengthLabel(comparison.requiredDepthMm)} deep`}
         />
         <Fact
           label="Clearance"
-          value={`${lengthLabel(comparison.requiredHorizontalClearanceMm)} side · ${lengthLabel(comparison.requiredDepthClearanceMm)} depth`}
+          value={`${inchesLabel(comparison.requiredHorizontalClearanceMm)} side · ${inchesLabel(comparison.requiredDepthClearanceMm)} depth`}
         />
         <Fact
           label="Budget"
@@ -58,8 +58,8 @@ export function FitResult({ assessment }: { assessment: AssessmentResponse }) {
             deskDepth={Math.max(comparison.requiredDepthMm! - (comparison.requiredDepthClearanceMm ?? 0), 0)}
           />
           <p className="text-sm leading-6 text-ink/65">
-            Top view of the desk inside the measured floor. The bars include clearance. This is not a 3D model and does
-            not certify delivery or assembly.
+            Top view of the item inside the measured floor. The bars include clearance. This is not a 3D model and does
+            not certify delivery or installation.
           </p>
         </div>
       ) : null}

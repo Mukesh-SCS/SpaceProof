@@ -1,220 +1,313 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  dragTo,
+  finishDrag,
+  pointOnImage,
+  startDrag,
+  type DragSession,
+  type EditorTool,
+  type NormBox,
+  type ResizeHandle,
+} from "@/lib/placement-session";
 
-export interface NormBox {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
+export type { NormBox };
 
-type Handle = "nw" | "ne" | "sw" | "se";
-type Drag =
-  | { kind: "draw"; x: number; y: number }
-  | { kind: "move"; box: NormBox; x: number; y: number }
-  | { kind: "resize"; handle: Handle; box: NormBox };
-
-function clamp(value: number): number {
-  return Math.min(1, Math.max(0, value));
-}
-
-function pointFromEvent(event: React.PointerEvent, surface: HTMLElement): { x: number; y: number } {
-  const rect = surface.getBoundingClientRect();
-  return {
-    x: clamp((event.clientX - rect.left) / Math.max(rect.width, 1)),
-    y: clamp((event.clientY - rect.top) / Math.max(rect.height, 1)),
-  };
-}
-
-function normalize(a: { x: number; y: number }, b: { x: number; y: number }): NormBox | null {
-  const box = {
-    minX: Math.min(a.x, b.x),
-    minY: Math.min(a.y, b.y),
-    maxX: Math.max(a.x, b.x),
-    maxY: Math.max(a.y, b.y),
-  };
-  if (box.maxX - box.minX < 0.02 || box.maxY - box.minY < 0.02) return null;
-  return box;
-}
-
-function moveBox(box: NormBox, dx: number, dy: number): NormBox {
-  const width = box.maxX - box.minX;
-  const height = box.maxY - box.minY;
-  const minX = clamp(box.minX + dx);
-  const minY = clamp(box.minY + dy);
-  return {
-    minX: Math.min(minX, 1 - width),
-    minY: Math.min(minY, 1 - height),
-    maxX: Math.min(minX, 1 - width) + width,
-    maxY: Math.min(minY, 1 - height) + height,
-  };
-}
-
-function resizeBox(box: NormBox, handle: Handle, point: { x: number; y: number }): NormBox | null {
-  const next = { ...box };
-  if (handle === "nw" || handle === "sw") next.minX = point.x;
-  if (handle === "ne" || handle === "se") next.maxX = point.x;
-  if (handle === "nw" || handle === "ne") next.minY = point.y;
-  if (handle === "sw" || handle === "se") next.maxY = point.y;
-  return normalize({ x: next.minX, y: next.minY }, { x: next.maxX, y: next.maxY });
-}
+const HANDLES: ResizeHandle[] = ["nw", "ne", "sw", "se"];
 
 export function PlacementEditor({
   imageUrl,
   box,
+  aiBox,
   obstacles,
-  drawing,
-  measurementLabel,
-  onDrawingChange,
+  tool,
+  status,
+  regionLabel,
+  onToolChange,
   onBoxChange,
+  onClear,
+  onReset,
+  onConfirmArea,
+  onSuggest,
+  suggesting,
 }: {
   imageUrl: string | null;
   box: NormBox | null;
+  aiBox?: NormBox | null;
   obstacles: NormBox[];
-  drawing: boolean;
-  measurementLabel?: string | null;
-  onDrawingChange: (drawing: boolean) => void;
+  tool: EditorTool;
+  status: string;
+  regionLabel?: string;
+  onToolChange: (tool: EditorTool) => void;
   onBoxChange: (box: NormBox) => void;
+  onClear: () => void;
+  onReset: () => void;
+  onConfirmArea: () => void;
+  onSuggest: () => void;
+  suggesting?: boolean;
 }) {
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<Drag | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const dragRef = useRef<DragSession | null>(null);
+  const liveRef = useRef<NormBox | null>(null);
+  const stopTracking = useRef<(() => void) | null>(null);
   const [live, setLive] = useState<NormBox | null>(null);
+  const [imageFrame, setImageFrame] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const shown = live ?? box;
 
-  function update(next: NormBox | null) {
+  useEffect(() => {
+    const image = imageRef.current;
+    const frame = frameRef.current;
+    if (!image || !frame) return;
+    const measure = () => {
+      const imageRect = image.getBoundingClientRect();
+      const frameRect = frame.getBoundingClientRect();
+      setImageFrame({
+        left: imageRect.left - frameRect.left,
+        top: imageRect.top - frameRect.top,
+        width: imageRect.width,
+        height: imageRect.height,
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(image);
+    observer.observe(frame);
+    image.addEventListener("load", measure);
+    return () => {
+      observer.disconnect();
+      image.removeEventListener("load", measure);
+    };
+  }, [imageUrl]);
+
+  function remember(next: NormBox | null) {
+    liveRef.current = next;
     setLive(next);
-    if (next) onBoxChange(next);
   }
+
+  function endDrag(reason: "up" | "cancel") {
+    stopTracking.current?.();
+    stopTracking.current = null;
+    if (!dragRef.current) return;
+    const finished = finishDrag(dragRef.current, liveRef.current, reason);
+    dragRef.current = null;
+    liveRef.current = null;
+    setLive(null);
+    if (finished.commit) onBoxChange(finished.commit);
+    if (finished.tool) onToolChange(finished.tool);
+  }
+
+  useEffect(() => () => stopTracking.current?.(), []);
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (!imageUrl || !surfaceRef.current) return;
-    const handle = (event.target as HTMLElement).dataset.handle as Handle | undefined;
-    const point = pointFromEvent(event, surfaceRef.current);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    if (handle && shown) {
-      dragRef.current = { kind: "resize", handle, box: shown };
-      return;
+    if (!imageUrl || imageFrame.width < 2) return;
+    const imageRect = {
+      left: event.currentTarget.getBoundingClientRect().left,
+      top: event.currentTarget.getBoundingClientRect().top,
+      width: event.currentTarget.clientWidth,
+      height: event.currentTarget.clientHeight,
+    };
+    const handleElement = (event.target as HTMLElement).closest("[data-handle]");
+    const handle = (handleElement?.getAttribute("data-handle") as ResizeHandle | null) ?? null;
+    const point = pointOnImage(event.clientX, event.clientY, imageRect);
+    const session = startDrag({
+      tool,
+      box: shown,
+      point,
+      handle,
+      onRegion: Boolean((event.target as HTMLElement).closest("[data-region='placement']")),
+    });
+    if (!session) return;
+    event.preventDefault();
+    dragRef.current = session;
+    const pointerId = event.pointerId;
+    const surface = event.currentTarget;
+    const move = (native: PointerEvent) => {
+      const active = dragRef.current;
+      if (!active || native.pointerId !== pointerId) return;
+      const rect = surface.getBoundingClientRect();
+      remember(dragTo(active, pointOnImage(native.clientX, native.clientY, {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      })));
+    };
+    const finish = (native: PointerEvent, reason: "up" | "cancel") => {
+      if (native.pointerId !== pointerId) return;
+      endDrag(reason);
+    };
+    const up = (native: PointerEvent) => finish(native, "up");
+    const cancel = (native: PointerEvent) => finish(native, "cancel");
+    stopTracking.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    try {
+      surface.setPointerCapture(pointerId);
+    } catch {
+      // Synthetic and cancelled pointers have no active id. Window listeners still end the drag.
     }
-    const onRegion = Boolean((event.target as HTMLElement).closest("[data-region='placement']"));
-    if (shown && onRegion && !drawing) {
-      dragRef.current = { kind: "move", box: shown, x: point.x, y: point.y };
-      return;
-    }
-    if (!drawing && shown) return;
-    dragRef.current = { kind: "draw", x: point.x, y: point.y };
-    onDrawingChange(true);
   }
 
-  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current;
-    if (!drag || !surfaceRef.current) return;
-    const point = pointFromEvent(event, surfaceRef.current);
-    if (drag.kind === "draw") {
-      setLive(normalize({ x: drag.x, y: drag.y }, point));
-      return;
-    }
-    if (drag.kind === "move") {
-      setLive(moveBox(drag.box, point.x - drag.x, point.y - drag.y));
-      return;
-    }
-    setLive(resizeBox(drag.box, drag.handle, point));
-  }
-
-  function onPointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (live) onBoxChange(live);
-    setLive(null);
-    if (drag?.kind === "draw") onDrawingChange(false);
-  }
-
-  function nudge(dx: number, dy: number) {
+  function nudge(dx: number, dy: number, resize: boolean) {
     if (!shown) return;
-    onBoxChange(moveBox(shown, dx, dy));
+    if (resize) {
+      const next = {
+        minX: shown.minX,
+        minY: shown.minY,
+        maxX: Math.min(1, Math.max(shown.minX + 0.04, shown.maxX + dx)),
+        maxY: Math.min(1, Math.max(shown.minY + 0.04, shown.maxY + dy)),
+      };
+      onBoxChange(next);
+      return;
+    }
+    const width = shown.maxX - shown.minX;
+    const height = shown.maxY - shown.minY;
+    const minX = Math.min(Math.max(0, shown.minX + dx), 1 - width);
+    const minY = Math.min(Math.max(0, shown.minY + dy), 1 - height);
+    onBoxChange({ minX, minY, maxX: minX + width, maxY: minY + height });
   }
+
+  const drawing = tool === "draw";
 
   return (
     <div className="space-y-3">
-      <div
-        ref={surfaceRef}
-        className="relative overflow-hidden rounded-xl bg-ink/5"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      >
+      <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Placement tools">
+        <ToolButton label="Let AI suggest" pressed={false} disabled={suggesting} onClick={onSuggest} testId="action-suggest" />
+        <ToolButton label="Draw your space" pressed={tool === "draw"} onClick={() => onToolChange("draw")} testId="tool-draw" />
+        <ToolButton label="Move" pressed={tool === "move"} onClick={() => onToolChange("move")} testId="tool-move" />
+        <ToolButton label="Resize" pressed={tool === "resize"} onClick={() => onToolChange("resize")} testId="tool-resize" />
+        <ToolButton label="Reset to AI suggestion" pressed={false} disabled={!aiBox} onClick={onReset} testId="action-reset" />
+        <ToolButton label="Clear selection" pressed={false} disabled={!box && !live} onClick={onClear} testId="action-clear" />
+        <ToolButton label="Confirm area" pressed={false} disabled={!box} onClick={onConfirmArea} testId="action-confirm-area" />
+      </div>
+      <p className="text-sm font-medium text-teal" data-testid="placement-status">
+        {suggesting ? "Looking for a placement area. No measurement is being inferred." : status}
+      </p>
+      <div ref={frameRef} className="relative flex min-h-72 items-center justify-center overflow-hidden rounded-xl bg-ink/5 sm:min-h-[28rem]">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="Uploaded room" className="block h-auto max-h-[36rem] w-full object-contain select-none" draggable={false} />
+          <img
+            ref={imageRef}
+            src={imageUrl}
+            alt="Uploaded room"
+            className="block h-auto max-h-[36rem] w-auto max-w-full select-none"
+            draggable={false}
+          />
         ) : (
-          <div className="flex min-h-72 items-center justify-center px-6 text-center text-base leading-7 text-ink/70 sm:min-h-[28rem]">
-            Upload a room photo to propose a desk area. The photo will not be measured.
+          <div className="px-6 text-center text-base leading-7 text-ink/70">
+            Upload a room photo to propose a placement area. The photo will not be measured.
           </div>
         )}
-        {measurementLabel ? (
-          <p className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-ink shadow-sm">
-            {measurementLabel}
-          </p>
-        ) : null}
-        {imageUrl
-          ? obstacles.map((obstacle, index) => (
+        {imageUrl && imageFrame.width > 2 ? (
+          <div
+            data-testid="placement-surface"
+            className={`absolute touch-none ${drawing ? "cursor-crosshair" : "cursor-default"}`}
+            style={{ left: imageFrame.left, top: imageFrame.top, width: imageFrame.width, height: imageFrame.height }}
+            onPointerDown={onPointerDown}
+            onLostPointerCapture={() => {
+              if (!dragRef.current) return;
+              endDrag("up");
+            }}
+          >
+            {obstacles.map((obstacle, index) => (
               <div
                 key={`obstacle-${index}`}
                 className="pointer-events-none absolute border border-dashed border-nofit/80"
-                style={{
-                  left: `${obstacle.minX * 100}%`,
-                  top: `${obstacle.minY * 100}%`,
-                  width: `${(obstacle.maxX - obstacle.minX) * 100}%`,
-                  height: `${(obstacle.maxY - obstacle.minY) * 100}%`,
-                }}
+                style={boxStyle(obstacle)}
               />
-            ))
-          : null}
-        {imageUrl && shown ? (
-          <div
-            data-region="placement"
-            role="slider"
-            aria-label="Desk placement region"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(shown.minX * 100)}
-            tabIndex={0}
-            onKeyDown={(event) => {
-              const step = event.shiftKey ? 0.05 : 0.01;
-              if (event.key === "ArrowLeft") nudge(-step, 0);
-              if (event.key === "ArrowRight") nudge(step, 0);
-              if (event.key === "ArrowUp") nudge(0, -step);
-              if (event.key === "ArrowDown") nudge(0, step);
-            }}
-            className="absolute cursor-move border-2 border-teal bg-teal/25"
-            style={{
-              left: `${shown.minX * 100}%`,
-              top: `${shown.minY * 100}%`,
-              width: `${(shown.maxX - shown.minX) * 100}%`,
-              height: `${(shown.maxY - shown.minY) * 100}%`,
-            }}
-          >
-            <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-medium text-teal">
-              Desk area
-            </span>
-            {(["nw", "ne", "sw", "se"] as const).map((handle) => (
-              <button
-                key={handle}
-                type="button"
-                data-handle={handle}
-                aria-label={`Resize ${handle}`}
-                className={`absolute h-7 w-7 ${handle.includes("n") ? "-top-3" : "-bottom-3"} ${handle.includes("w") ? "-left-3" : "-right-3"}`}
-              >
-                <span className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-card bg-teal" />
-              </button>
             ))}
+            {shown ? (
+              <div
+                data-region="placement"
+                data-testid="placement-region"
+                role="slider"
+                aria-label="Placement region"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(shown.minX * 100)}
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  const step = event.shiftKey ? 0.05 : 0.01;
+                  const resize = tool === "resize";
+                  if (event.key === "ArrowLeft") nudge(resize ? -step : -step, resize ? 0 : 0, resize);
+                  if (event.key === "ArrowRight") nudge(step, 0, resize);
+                  if (event.key === "ArrowUp") nudge(0, -step, resize);
+                  if (event.key === "ArrowDown") nudge(0, step, resize);
+                }}
+                className={`absolute border-2 ${drawing ? "pointer-events-none border-dashed border-ink bg-ink/10" : "cursor-move border-teal bg-teal/25"}`}
+                style={boxStyle(shown)}
+              >
+                <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-medium text-teal">
+                  {drawing ? "New area" : (regionLabel ?? status)}
+                </span>
+                {HANDLES.map((handle) => (
+                  <div
+                    key={handle}
+                    role="button"
+                    tabIndex={-1}
+                    data-handle={handle}
+                    data-testid={`handle-${handle}`}
+                    aria-label={`Resize ${handle}`}
+                    className={`absolute h-11 w-11 ${drawing ? "pointer-events-none" : ""} ${handle.includes("n") ? "-top-5" : "-bottom-5"} ${handle.includes("w") ? "-left-5" : "-right-5"}`}
+                  >
+                    <span className="pointer-events-none absolute top-1/2 left-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-card bg-teal" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
       <p className="text-sm leading-6 text-ink/70">
-        The teal rectangle is a placement proposal. Drag it, resize the corners, or draw a new one. Arrow keys nudge the
-        selected rectangle. It does not measure the room.
+        {drawing
+          ? "Drag on the photo to replace the selection. The photograph does not supply feet or inches."
+          : "Drag inside the area to move it. Use the corner handles, or Resize, to change it. Arrow keys nudge the selection."}
       </p>
     </div>
+  );
+}
+
+function boxStyle(box: NormBox): { left: string; top: string; width: string; height: string } {
+  return {
+    left: `${box.minX * 100}%`,
+    top: `${box.minY * 100}%`,
+    width: `${(box.maxX - box.minX) * 100}%`,
+    height: `${(box.maxY - box.minY) * 100}%`,
+  };
+}
+
+function ToolButton({
+  label,
+  pressed,
+  disabled,
+  onClick,
+  testId,
+}: {
+  label: string;
+  pressed: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={pressed}
+      disabled={disabled}
+      className={`min-h-11 rounded-full border px-3 text-sm disabled:opacity-50 ${
+        pressed ? "border-teal bg-teal text-white" : "border-line bg-card"
+      }`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }

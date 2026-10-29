@@ -7,7 +7,13 @@ from typing import Any
 
 from app.images import prepare_room_image
 from app.nebius import VisionCompleter, preference_messages, rank_messages, room_messages
-from app.parsing import apply_stated_constraints, merge_rankings, parse_preferences, parse_room_analysis
+from app.parsing import (
+    ModelOutputError,
+    apply_stated_constraints,
+    merge_rankings,
+    parse_preferences,
+    parse_room_analysis,
+)
 from app.schemas import RankedExplanation, RoomAnalysis, ShoppingPreferences
 
 
@@ -18,8 +24,26 @@ def analyze_room_image(
     completer: VisionCompleter,
 ) -> tuple[RoomAnalysis, int, int]:
     jpeg, width, height = prepare_room_image(data, content_type, filename)
-    raw = completer.complete(room_messages(jpeg), max_tokens=2200)
-    return parse_room_analysis(raw), width, height
+    messages = room_messages(jpeg)
+    raw = completer.complete(messages, max_tokens=2200)
+    try:
+        return parse_room_analysis(raw), width, height
+    except ModelOutputError:
+        repaired = completer.complete(
+            [
+                *messages,
+                {"role": "assistant", "content": raw[:4000]},
+                {
+                    "role": "user",
+                    "content": (
+                        "That reply was not valid JSON. Return one JSON object only, "
+                        "using the same schema. Do not estimate physical measurements."
+                    ),
+                },
+            ],
+            max_tokens=1600,
+        )
+        return parse_room_analysis(repaired), width, height
 
 
 def interpret_shopping_request(request_text: str, completer: VisionCompleter) -> ShoppingPreferences:

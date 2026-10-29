@@ -5,6 +5,8 @@ const MAX_DIMENSION_MM = 100_000;
 const MAX_MONEY_MINOR = 100_000_000;
 const SUPPORTED_CURRENCY = "USD";
 
+export type ProductCategory = "desk" | "dining_table";
+
 export interface CatalogProduct {
   sku: string;
   title: string;
@@ -14,6 +16,8 @@ export interface CatalogProduct {
   priceMinor: number;
   currency: string;
   available: boolean;
+  /** Omitted rows are desks. The server catalog is the source of this value. */
+  category?: ProductCategory;
 }
 
 export interface RoomConstraints {
@@ -179,7 +183,7 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     uncertain.push(
       reason(
         "MEASUREMENT_UNCONFIRMED",
-        "Measurements must be confirmed before a desk can be marked as a fit.",
+        "Measurements must be confirmed before an item can be marked as a fit.",
         false,
       ),
     );
@@ -270,6 +274,31 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     });
   }
 
+  const piece = product?.category === "dining_table" ? "table" : "desk";
+  const sideName = product?.category === "dining_table" ? "chair clearance" : "side clearance";
+  const depthName = product?.category === "dining_table" ? "chair clearance" : "depth clearance";
+
+  if (product?.category === "dining_table" && horizontal.value === 0 && depthClearance.value === 0) {
+    return emptyComparison({
+      result: "UNCERTAIN",
+      reasons: [
+        reason(
+          "CHAIR_CLEARANCE_REQUIRED",
+          "A dining table needs buyer-specified chair clearance on the side or the depth. Zero on both is not enough evidence. Doorway and delivery are not checked.",
+          false,
+        ),
+      ],
+      availableWidthMm: width.value,
+      availableDepthMm: depth.value,
+      requiredHorizontalClearanceMm: horizontal.value,
+      requiredDepthClearanceMm: depthClearance.value,
+      budgetMinor: budget.value,
+      priceMinor: catalog.priceMinor,
+      currency: catalog.currency,
+      normalizedRoom,
+    });
+  }
+
   const requiredWidth = catalog.widthMm + horizontal.value;
   const requiredDepth = catalog.depthMm + depthClearance.value;
   if (!Number.isSafeInteger(requiredWidth) || !Number.isSafeInteger(requiredDepth)) {
@@ -291,7 +320,7 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     violations.push(
       reason(
         "WIDTH_EXCEEDS_ROOM",
-        `The desk is ${catalog.widthMm} mm wide and the room is only ${width.value} mm wide.`,
+        `The ${piece} is ${catalog.widthMm} mm wide and the room is only ${width.value} mm wide.`,
         true,
         { productWidthMm: catalog.widthMm, roomWidthMm: width.value },
       ),
@@ -300,7 +329,7 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     violations.push(
       reason(
         "CLEARANCE_EXCEEDS_WIDTH",
-        `The desk is ${catalog.widthMm} mm wide, and ${horizontal.value} mm of side clearance raises the required width to ${requiredWidth} mm, which is more than the ${width.value} mm available.`,
+        `The ${piece} is ${catalog.widthMm} mm wide, and ${horizontal.value} mm of ${sideName} raises the required width to ${requiredWidth} mm, which is more than the ${width.value} mm available.`,
         true,
         {
           requiredWidthMm: requiredWidth,
@@ -315,7 +344,7 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     violations.push(
       reason(
         "DEPTH_EXCEEDS_ROOM",
-        `The desk is ${catalog.depthMm} mm deep and the room is only ${depth.value} mm deep.`,
+        `The ${piece} is ${catalog.depthMm} mm deep and the room is only ${depth.value} mm deep.`,
         true,
         { productDepthMm: catalog.depthMm, roomDepthMm: depth.value },
       ),
@@ -324,7 +353,7 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     violations.push(
       reason(
         "CLEARANCE_EXCEEDS_DEPTH",
-        `The desk is ${catalog.depthMm} mm deep, and ${depthClearance.value} mm of depth clearance raises the required depth to ${requiredDepth} mm, which is more than the ${depth.value} mm available.`,
+        `The ${piece} is ${catalog.depthMm} mm deep, and ${depthClearance.value} mm of ${depthName} raises the required depth to ${requiredDepth} mm, which is more than the ${depth.value} mm available.`,
         true,
         {
           requiredDepthMm: requiredDepth,
@@ -372,13 +401,13 @@ export function assessFit(product: CatalogProduct | null, room: RoomConstraints)
     reasons: [
       reason(
         "FIT_WIDTH",
-        `Required width ${requiredWidth} mm is within the ${width.value} mm room, including ${horizontal.value} mm of side clearance.`,
+        `Required width ${requiredWidth} mm is within the ${width.value} mm room, including ${horizontal.value} mm of ${sideName}.`,
         false,
         { requiredWidthMm: requiredWidth, roomWidthMm: width.value },
       ),
       reason(
         "FIT_DEPTH",
-        `Required depth ${requiredDepth} mm is within the ${depth.value} mm room, including ${depthClearance.value} mm of depth clearance.`,
+        `Required depth ${requiredDepth} mm is within the ${depth.value} mm room, including ${depthClearance.value} mm of ${depthName}.`,
         false,
         { requiredDepthMm: requiredDepth, roomDepthMm: depth.value },
       ),

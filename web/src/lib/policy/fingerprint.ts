@@ -25,6 +25,7 @@ export function evidenceFingerprint(input: {
 }): string {
   const fields: Record<string, string | number | boolean> = {
     available: input.product.available,
+    category: input.product.category === "dining_table" ? "dining_table" : "desk",
     availableDepthMm: input.room.availableDepthMm,
     availableWidthMm: input.room.availableWidthMm,
     budgetMinor: input.room.budgetMinor,

@@ -119,6 +119,50 @@
       "priceMinor": 24900,
       "currency": "USD",
       "available": true
+    },
+    {
+      "sku": "TABLE-BISTRO-70",
+      "title": "Bistro Table",
+      "category": "dining_table",
+      "widthMm": 700,
+      "depthMm": 700,
+      "heightMm": 750,
+      "priceMinor": 14900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "TABLE-CAFE-80",
+      "title": "Cafe Table",
+      "category": "dining_table",
+      "widthMm": 800,
+      "depthMm": 800,
+      "heightMm": 740,
+      "priceMinor": 16900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "TABLE-NOOK-90",
+      "title": "Nook Table",
+      "category": "dining_table",
+      "widthMm": 900,
+      "depthMm": 600,
+      "heightMm": 730,
+      "priceMinor": 15900,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "sku": "TABLE-SQUARE-100",
+      "title": "Square Table",
+      "category": "dining_table",
+      "widthMm": 1000,
+      "depthMm": 1000,
+      "heightMm": 750,
+      "priceMinor": 19900,
+      "currency": "USD",
+      "available": true
     }
   ]
 }

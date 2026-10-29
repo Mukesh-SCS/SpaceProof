@@ -23,24 +23,66 @@ class ModelOutputError(Exception):
         self.message = message
 
 
+def _strip_trailing_commas(text: str) -> str:
+    return re.sub(r",\s*([}\]])", r"\1", text)
+
+
+def _close_truncated_json(text: str) -> str | None:
+    """Close braces that were cut off after a complete value. Do not invent a missing string or number."""
+    stack: list[str] = []
+    in_string = False
+    escape = False
+    for char in text:
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            stack.append("}")
+        elif char == "[":
+            stack.append("]")
+        elif char in "}]":
+            if not stack or stack[-1] != char:
+                return None
+            stack.pop()
+    if in_string or escape or not stack:
+        return None
+    return text + "".join(reversed(stack))
+
+
 def extract_json_object(text: str) -> dict[str, Any]:
-    cleaned = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned, re.DOTALL)
+    cleaned = text.strip().lstrip("\ufeff")
+    fenced = re.search(r"```(?:json)?\s*(\{.*)\s*```", cleaned, re.DOTALL)
     if fenced:
-        cleaned = fenced.group(1)
+        cleaned = fenced.group(1).strip()
     else:
         start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start < 0 or end <= start:
+        if start < 0:
             raise ModelOutputError("The model did not return a JSON object.")
-        cleaned = cleaned[start : end + 1]
-    try:
-        value = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ModelOutputError("The model returned invalid JSON.") from exc
-    if not isinstance(value, dict):
-        raise ModelOutputError("The model response was not a JSON object.")
-    return value
+        end = cleaned.rfind("}")
+        cleaned = cleaned[start : end + 1] if end > start else cleaned[start:]
+    cleaned = _strip_trailing_commas(cleaned)
+    candidates = [cleaned]
+    closed = _close_truncated_json(cleaned)
+    if closed and closed != cleaned:
+        candidates.append(_strip_trailing_commas(closed))
+    last_error: json.JSONDecodeError | None = None
+    for candidate in candidates:
+        try:
+            value = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if not isinstance(value, dict):
+            raise ModelOutputError("The model response was not a JSON object.")
+        return value
+    raise ModelOutputError("The model returned invalid JSON.") from last_error
 
 
 def _discard_measurements(value: dict[str, Any]) -> list[str]:
@@ -180,15 +222,23 @@ def apply_stated_constraints(request_text: str, preferences: ShoppingPreferences
                 warnings.append("The budget was read from the dollar amount in the request.")
                 questions = [item for item in questions if "budget" not in item.lower()]
     if side is None and depth is None:
-        clearance = re.search(r"(\d+)\s*cm of clearance", request_text, re.IGNORECASE)
-        if clearance:
-            millimeters = int(clearance.group(1)) * 10
-            if 0 <= millimeters <= 10000:
-                side = millimeters
-                depth = millimeters
-                warnings.append(
-                    "One clearance amount was copied to both side and depth. Correct either value before confirming."
-                )
+        clearance_cm = re.search(r"(\d+)\s*cm of clearance", request_text, re.IGNORECASE)
+        clearance_in = re.search(
+            r"(\d+(?:\.\d+)?)\s*(?:inches|inch|in)\s+of clearance",
+            request_text,
+            re.IGNORECASE,
+        )
+        millimeters = None
+        if clearance_cm:
+            millimeters = int(clearance_cm.group(1)) * 10
+        elif clearance_in:
+            millimeters = int(round(float(clearance_in.group(1)) * 25.4))
+        if millimeters is not None and 0 <= millimeters <= 10000:
+            side = millimeters
+            depth = millimeters
+            warnings.append(
+                "One clearance amount was copied to both side and depth. Correct either value before confirming."
+            )
     return preferences.model_copy(
         update={
             "maximum_budget_minor": budget,

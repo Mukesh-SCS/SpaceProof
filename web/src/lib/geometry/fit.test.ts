@@ -175,12 +175,36 @@ describe("deterministic fit engine", () => {
     expect(result.availableWidthMm).toBe(DEMO_ROOM.availableWidthMm);
   });
 
+  it("requires chair clearance before a dining table can fit", () => {
+    const table = {
+      ...nook,
+      sku: "TABLE-CAFE-80",
+      title: "Cafe Table",
+      category: "dining_table" as const,
+      widthMm: 800,
+      depthMm: 800,
+      priceMinor: 16900,
+    };
+    const tight = assessFit(table, room({ requiredHorizontalClearanceMm: 0, requiredDepthClearanceMm: 0 }));
+    expect(tight.result).toBe("UNCERTAIN");
+    expect(tight.reasons.map((reason) => reason.code)).toContain("CHAIR_CLEARANCE_REQUIRED");
+    const held = assessFit(table, room());
+    expect(held.result).toBe("FIT");
+    expect(held.reasons.map((reason) => reason.code)).toContain("FIT_WIDTH");
+    const blocked = assessFit(table, room({ availableWidthMm: 900 }));
+    expect(blocked.result).toBe("DOES_NOT_FIT");
+    expect(blocked.reasons.map((reason) => reason.code)).toContain("CLEARANCE_EXCEEDS_WIDTH");
+    expect(blocked.explanation).toMatch(/chair clearance/);
+    expect(blocked.explanation).not.toMatch(/doorway/i);
+  });
+
   it("the seeded desks disagree on the demo corner", () => {
     const file = JSON.parse(readFileSync(path.resolve(process.cwd(), "../data/products.json"), "utf8")) as {
       products: CatalogProduct[];
     };
     expect(file.products.length).toBeGreaterThanOrEqual(12);
     expect(file.products.length).toBeLessThanOrEqual(20);
+    expect(file.products.filter((product) => product.category === "dining_table").length).toBeGreaterThanOrEqual(3);
     expect(new Set(file.products.map((product) => product.sku)).size).toBe(file.products.length);
     const nookRow = file.products.find((product) => product.sku === "DESK-NOOK-100");
     const studio = file.products.find((product) => product.sku === "DESK-STUDIO-140");

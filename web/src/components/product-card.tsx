@@ -1,6 +1,6 @@
-import type { FitResult } from "@/lib/geometry/fit";
+import type { FitResult, ProductCategory } from "@/lib/geometry/fit";
 import { formatUsd } from "@/lib/money";
-import { lengthLabel } from "@/components/experience";
+import { categoryLabel, lengthLabel } from "@/components/experience";
 
 const tones: Record<FitResult, string> = {
   FIT: "bg-fit/10 text-fit",
@@ -31,10 +31,12 @@ export function ProductCard({
   widthMm,
   depthMm,
   priceMinor,
+  category,
   result,
   explanation,
   selected,
   loading,
+  stale,
   onSelect,
   onDetails,
 }: {
@@ -43,10 +45,12 @@ export function ProductCard({
   widthMm: number;
   depthMm: number;
   priceMinor: number;
+  category?: ProductCategory;
   result?: FitResult;
   explanation: string;
   selected: boolean;
   loading: boolean;
+  stale?: boolean;
   onSelect: () => void;
   onDetails: () => void;
 }) {
@@ -54,13 +58,16 @@ export function ProductCard({
     <article className={`flex h-full flex-col rounded-2xl border bg-card p-4 ${selected ? "border-teal shadow-sm" : "border-line"}`}>
       <div className="flex items-start justify-between gap-3">
         <DeskSketch widthMm={widthMm} depthMm={depthMm} />
-        {result ? (
+        {stale ? (
+          <p className="rounded-full bg-uncertain/15 px-3 py-1 text-xs font-semibold text-uncertain">Check again</p>
+        ) : result ? (
           <p className={`rounded-full px-3 py-1 text-xs font-semibold ${tones[result]}`}>{labels[result]}</p>
         ) : (
           <p className="text-xs text-ink/50">Not checked</p>
         )}
       </div>
-      <h3 className="font-display mt-3 text-2xl leading-tight">{title}</h3>
+      <p className="mt-3 text-xs font-medium tracking-wide text-teal uppercase">{categoryLabel(category)}</p>
+      <h3 className="font-display text-2xl leading-tight">{title}</h3>
       <p className="mt-1 text-sm text-ink/65">
         {lengthLabel(widthMm)} wide · {lengthLabel(depthMm)} deep
       </p>

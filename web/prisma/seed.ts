@@ -8,6 +8,7 @@ interface SeedFile {
   products: Array<{
     sku: string;
     title: string;
+    category?: "desk" | "dining_table";
     widthMm: number;
     depthMm: number;
     heightMm: number;
@@ -42,7 +43,15 @@ async function main() {
   const filePath = path.resolve(process.cwd(), "..", "data", "products.json");
   const parsed = JSON.parse(readFileSync(filePath, "utf8")) as SeedFile;
   if (!Array.isArray(parsed.products) || parsed.products.length < 12 || parsed.products.length > 20) {
-    throw new Error("The desk catalog must contain 12 to 20 products.");
+    throw new Error("The demo catalog must contain 12 to 20 products.");
+  }
+  const desks = parsed.products.filter((product) => (product.category ?? "desk") === "desk");
+  const tables = parsed.products.filter((product) => product.category === "dining_table");
+  if (desks.length !== 12) {
+    throw new Error("The demo catalog must keep the 12 desks.");
+  }
+  if (tables.length < 3 || tables.length > 5) {
+    throw new Error("The demo catalog must contain 3 to 5 compact dining tables.");
   }
   parsed.products.forEach(assertProduct);
   const bySku = new Map(parsed.products.map((product) => [product.sku, product]));
@@ -66,6 +75,7 @@ async function main() {
       where: { sku: product.sku },
       update: {
         title: product.title,
+        category: product.category ?? "desk",
         widthMm: product.widthMm,
         depthMm: product.depthMm,
         heightMm: product.heightMm,
@@ -73,7 +83,17 @@ async function main() {
         currency: product.currency,
         available: product.available,
       },
-      create: product,
+      create: {
+        sku: product.sku,
+        title: product.title,
+        category: product.category ?? "desk",
+        widthMm: product.widthMm,
+        depthMm: product.depthMm,
+        heightMm: product.heightMm,
+        priceMinor: product.priceMinor,
+        currency: product.currency,
+        available: product.available,
+      },
     });
   }
 }

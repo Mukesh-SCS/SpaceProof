@@ -18,6 +18,7 @@ function productFrom(row: ProductRow): ProductRow {
     priceMinor: row.priceMinor,
     currency: row.currency,
     available: row.available,
+    category: row.category === "dining_table" ? "dining_table" : "desk",
   };
 }
 

@@ -1,8 +1,26 @@
 import type { PaymentView } from "@/lib/api-types";
-import type { FitResult } from "@/lib/geometry/fit";
+import type { FitResult, ProductCategory } from "@/lib/geometry/fit";
+import { inchesLabel, lengthLabel } from "@/lib/imperial";
 import { formatUsd } from "@/lib/money";
 
+export { inchesLabel, lengthLabel };
+
 export type CatalogFilter = "all" | "FIT" | "DOES_NOT_FIT" | "UNCERTAIN";
+export type CategoryFilter = "all" | ProductCategory;
+
+export type WorkflowState =
+  | "UPLOADING"
+  | "NEEDS_MEASUREMENTS"
+  | "READY_TO_VERIFY"
+  | "VERIFYING"
+  | "FIT"
+  | "DOES_NOT_FIT"
+  | "UNCERTAIN"
+  | "PAYMENT_PENDING"
+  | "AUTHORIZED"
+  | "CAPTURED"
+  | "VOIDED"
+  | "FAILED";
 
 export interface JourneyStep {
   id: "upload" | "measure" | "verify" | "pay";
@@ -37,14 +55,61 @@ export function journeySteps(input: {
   }));
 }
 
-export function selectCatalog<T extends { sku: string }>(
+export function purchaseStages(input: {
+  confirmed: boolean;
+  hasCurrentAssessment: boolean;
+  paymentSettled: boolean;
+}): JourneyStep[] {
+  const done = [input.confirmed, input.hasCurrentAssessment, input.paymentSettled];
+  const lastDone = done.lastIndexOf(true);
+  const currentIndex = done.findIndex((item, index) => !item && index > lastDone);
+  const labels = [
+    ["upload", "Understand"],
+    ["verify", "Compare"],
+    ["pay", "Pay"],
+  ] as const;
+  return labels.map(([id, label], index) => ({
+    id,
+    label,
+    state: done[index] ? "done" : index === currentIndex ? "current" : "waiting",
+  }));
+}
+
+export function workflowState(input: {
+  uploading: boolean;
+  confirmed: boolean;
+  verifying: boolean;
+  selectedResult: FitResult | null;
+  selectedCurrent: boolean;
+  paymentStatus: string | null;
+}): WorkflowState {
+  if (input.uploading) return "UPLOADING";
+  if (input.paymentStatus === "CAPTURED") return "CAPTURED";
+  if (input.paymentStatus === "VOIDED") return "VOIDED";
+  if (input.paymentStatus === "FAILED") return "FAILED";
+  if (input.paymentStatus === "CANCELED") return "FAILED";
+  if (input.paymentStatus === "AUTHORIZED") return "AUTHORIZED";
+  if (input.paymentStatus === "CREATED" || input.paymentStatus === "PENDING") return "PAYMENT_PENDING";
+  if (input.verifying) return "VERIFYING";
+  if (!input.confirmed) return "NEEDS_MEASUREMENTS";
+  if (!input.selectedCurrent || !input.selectedResult) return "READY_TO_VERIFY";
+  return input.selectedResult;
+}
+
+export function categoryLabel(category: ProductCategory | undefined): string {
+  return category === "dining_table" ? "Dining table" : "Desk";
+}
+
+export function selectCatalog<T extends { sku: string; category?: ProductCategory }>(
   products: T[],
   results: Record<string, FitResult | undefined>,
   filter: CatalogFilter,
   selectedSku: string | null,
   showAll: boolean,
+  category: CategoryFilter = "all",
 ): { shown: T[]; hidden: number } {
-  const filtered = products.filter((product) => filter === "all" || results[product.sku] === filter);
+  const inCategory = products.filter((product) => category === "all" || (product.category ?? "desk") === category);
+  const filtered = inCategory.filter((product) => filter === "all" || results[product.sku] === filter);
   if (showAll || filter !== "all") return { shown: filtered, hidden: 0 };
   const compatible = filtered.filter((product) => results[product.sku] === "FIT");
   const pool = compatible.length > 0 ? compatible.slice(0, 6) : filtered.slice(0, 3);
@@ -56,18 +121,12 @@ export function selectCatalog<T extends { sku: string }>(
   return { shown, hidden: Math.max(filtered.length - shown.length, 0) };
 }
 
-export function lengthLabel(millimeters: number | null): string {
-  if (millimeters === null || !Number.isFinite(millimeters)) return "Not available";
-  if (millimeters % 10 === 0) return `${millimeters / 10} cm`;
-  return `${(millimeters / 10).toFixed(1)} cm`;
-}
-
 export function verdict(result: FitResult): { label: string; summary: string } {
   if (result === "FIT") {
-    return { label: "Fits", summary: "The confirmed space can hold this desk." };
+    return { label: "Fits", summary: "The confirmed space can hold this item." };
   }
   if (result === "DOES_NOT_FIT") {
-    return { label: "Does not fit", summary: "Checkout stays closed for this desk." };
+    return { label: "Does not fit", summary: "Checkout stays closed for this item." };
   }
   return { label: "Uncertain", summary: "SpaceProof needs a confirmed measurement before checkout." };
 }
@@ -79,9 +138,9 @@ export function checkoutClosedReason(input: {
   consented: boolean;
 }): string | null {
   if (!input.result) return "Check this desk before payment can open.";
-  if (input.result === "DOES_NOT_FIT") return "This desk does not fit the confirmed space, so PayPal stays closed.";
+  if (input.result === "DOES_NOT_FIT") return "This item does not fit the confirmed space, so PayPal stays closed.";
   if (input.result === "UNCERTAIN") return "The measurement is not confirmed, so PayPal stays closed.";
-  if (input.sceneDirty) return "The room changed after this check. Verify the desk again before payment.";
+  if (input.sceneDirty) return "The room changed after this check. Verify the product again before payment.";
   if (!input.confirmed) return "Confirm the measurements before payment.";
   if (!input.consented) return "Approve the catalog price to open PayPal.";
   return null;

@@ -1,0 +1,42 @@
+name: Linux install
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    name: npm ci on Ubuntu
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      DATABASE_URL: postgresql://spaceproof:spaceproof@127.0.0.1:5432/spaceproof
+      PAYPAL_ENVIRONMENT: sandbox
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24.22.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies from the lockfile
+        run: npm ci --include=dev
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build the Next.js app
+        run: npm run build
+
+      - name: Typecheck
+        run: npx tsc --noEmit

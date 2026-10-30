@@ -26,6 +26,14 @@ PostgreSQL, through Prisma, stores products, room versions, fit assessments, pur
 
 PayPal secrets and the Nebius key stay in service environment variables. The browser receives only the public sandbox client id.
 
+## Service token and request limits
+
+`/analyze-room`, `/interpret-request`, and `/rank-products` require `Authorization: Bearer $VISION_SERVICE_TOKEN`. The same value is set on the Next.js server and the FastAPI server. It is not a `NEXT_PUBLIC_` variable. `/health` stays public and does not return the token or the Nebius key.
+
+The Next.js routes count requests in the `ApiRateWindow` Postgres table: 20 vision calls and 10 order-creation calls per address per minute. A restart does not clear that table, and every web instance using the same database shares it. If the table cannot be updated, those routes return HTTP 503 instead of calling Nebius. The FastAPI process also keeps a 20-request memory window. That second window is lost on restart and is not shared across vision instances. The token is what stops an anonymous client from calling Nebius directly.
+
+Uploads must declare a content length. Files over 8 MB, files that are not JPEG or PNG bytes, and images over 24 million pixels are rejected. The file is read in chunks and stopped at the byte cap. Nebius calls time out after 45 seconds and are not retried by the provider client. Model output is parsed before use. Dimensions and prices from the model are not trusted.
+
 ## What is intentionally absent
 
-Webhook signature verification is not implemented. There is no object storage, no shared rate-limit store, and no path that turns pixels into millimeters.
+Webhook signature verification is not implemented. There is no object storage, and there is no path that turns pixels into millimeters. The Postgres limiter does not stop a caller who already has the service token and talks to FastAPI directly, beyond the per-process window.

@@ -14,8 +14,8 @@ describe("room uploads", () => {
     expect(rejectRoomUpload({ size: 8 * 1024 * 1024 + 1, type: "image/jpeg" })?.status).toBe(413);
   });
 
-  it("rejects a declared body that is already larger than 8 MB", () => {
+  it("rejects a missing length and a declared body larger than 8 MB", () => {
     expect(rejectDeclaredBody(String(9 * 1024 * 1024))?.status).toBe(413);
-    expect(rejectDeclaredBody(null)).toBeNull();
+    expect(rejectDeclaredBody(null)?.status).toBe(411);
   });
 });

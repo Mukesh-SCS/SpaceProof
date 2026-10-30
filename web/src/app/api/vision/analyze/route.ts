@@ -1,9 +1,9 @@
 import { rateLimitedResponse } from "@/lib/rate-limit";
 import { rejectDeclaredBody, rejectRoomUpload } from "@/lib/uploads";
-import { visionServiceUrl } from "@/lib/vision/proxy";
+import { visionAuthFailure, visionAuthHeaders, visionServiceUrl } from "@/lib/vision/proxy";
 
 export async function POST(request: Request) {
-  const limited = rateLimitedResponse(request, "vision-analyze", 20);
+  const limited = await rateLimitedResponse(request, "vision-analyze", 20);
   if (limited) return limited;
   const declared = rejectDeclaredBody(request.headers.get("content-length"));
   if (declared) return Response.json({ code: "IMAGE_TOO_LARGE", message: declared.message }, { status: declared.status });
@@ -25,11 +25,14 @@ export async function POST(request: Request) {
       { status: rejected.status },
     );
   }
+  const auth = visionAuthHeaders();
+  if (!auth) return visionAuthFailure();
   const outbound = new FormData();
   outbound.set("image", file, file.name || "room.jpg");
   try {
     const response = await fetch(`${visionServiceUrl()}/analyze-room`, {
       method: "POST",
+      headers: auth,
       body: outbound,
       cache: "no-store",
       signal: AbortSignal.timeout(50_000),

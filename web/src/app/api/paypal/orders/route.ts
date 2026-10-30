@@ -7,7 +7,7 @@ const repo = createCheckoutRepository();
 const gateway = createPayPalGateway();
 
 export async function POST(request: Request) {
-  const limited = rateLimitedResponse(request, "paypal-orders", 10);
+  const limited = await rateLimitedResponse(request, "paypal-orders", 10);
   if (limited) return limited;
   let payload: unknown;
   try {

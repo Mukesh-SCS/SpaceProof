@@ -7,6 +7,7 @@ import numpy as np
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_EDGE_PX = 1280
+MAX_PIXELS = 24_000_000
 
 
 class ImageRejected(Exception):
@@ -22,6 +23,35 @@ def _magic_kind(data: bytes) -> str | None:
         return "jpeg"
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
+    return None
+
+
+def read_capped(source, limit: int = MAX_IMAGE_BYTES) -> bytes:
+    """Stop once the upload passes the limit. Do not buffer an unbounded body."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        block = source.read(64 * 1024)
+        if not block:
+            break
+        total += len(block)
+        if total > limit:
+            raise ImageRejected("IMAGE_TOO_LARGE", "The photograph is larger than 8 MB.", 413)
+        chunks.append(block)
+    return b"".join(chunks)
+
+
+def reject_declared_length(content_length: str | None) -> ImageRejected | None:
+    if content_length is None or not content_length.isdigit():
+        return None
+    if int(content_length) > MAX_IMAGE_BYTES + 64 * 1024:
+        return ImageRejected("IMAGE_TOO_LARGE", "The photograph is larger than 8 MB.", 413)
+    return None
+
+
+def reject_pixel_size(width: int, height: int) -> ImageRejected | None:
+    if width > 8000 or height > 8000 or width * height > MAX_PIXELS:
+        return ImageRejected("IMAGE_TOO_LARGE", "The photograph has too many pixels to review.", 413)
     return None
 
 
@@ -48,6 +78,9 @@ def prepare_room_image(data: bytes, content_type: str | None, filename: str | No
     height, width = decoded.shape[:2]
     if width < 32 or height < 32:
         raise ImageRejected("IMAGE_TOO_SMALL", "The photograph is too small to review.", 400)
+    too_large = reject_pixel_size(width, height)
+    if too_large:
+        raise too_large
 
     scale = min(1.0, MAX_EDGE_PX / max(width, height))
     if scale < 1:

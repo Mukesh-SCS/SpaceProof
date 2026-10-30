@@ -2,7 +2,9 @@
 
 **Verify before you pay.**
 
-> **Status: hosted demo, reviewed October 28, 2026.** Geometry, versioned fit assessments, photo proposals from Nebius, and the PayPal authorize / capture / void server flow are implemented. One sandbox buyer approved Nook Desk and PayPal capture `66M90673NA362091J` was read back as `COMPLETED` for USD 129.00. The repository does not contain a PayPal read-back for a void of an uncaptured authorization. The vision service does not measure photographs. The public site is https://spaceproof.onrender.com/.
+> **Status: hosted demo, reviewed October 30, 2026.** Geometry, versioned fit assessments, Nebius placement proposals, and the PayPal authorize / capture / void server flow are implemented. On October 30, PayPal still reported capture `66M90673NA362091J` as `COMPLETED` for USD 129.00 on order `8NN90589CS658724M`. No authorization was read back as `VOIDED`. The vision service does not measure photographs. The public site is https://spaceproof.onrender.com/.
+
+AI shopping recommendations can describe a room and still miss the buyer's space, clearance, and budget. SpaceProof links an editable placement suggestion and buyer-confirmed feet and inches to a deterministic check, then lets PayPal authorize only a server-approved catalog price. Capture happens after a second check. A failed recheck is supposed to void an uncaptured authorization. That void path is implemented and covered by mocked tests. A live `VOIDED` status has not been read back from PayPal.
 
 SpaceProof is an AI-assisted transaction-verification system for someone buying a desk for a small apartment or home office. A recommendation is not a purchase decision. The buyer confirms room measurements, the server compares them with a trusted catalog, and PayPal Sandbox can authorize a payment only after that server records `FIT`. Before capture, the server reloads the catalog, the current room version, and the linked assessment. If that evidence changed, capture is refused and an outstanding authorization is voided.
 
@@ -116,7 +118,7 @@ flowchart TD
 | Computer vision | Python, FastAPI, OpenCV | Calibration, geometry extraction, measurement checks |
 | Multimodal AI | Nebius Token Factory, `nvidia/Nemotron-3.5-Super-VL` | Scene interpretation and shopping-request extraction. It cannot set a price or a fit result. |
 | Database | PostgreSQL with Prisma ORM | Catalog, scene versions, assessments, purchase and payment ledger |
-| Payments | PayPal Sandbox Orders v2, Payments v2, webhooks | Buyer approval, authorize/capture/void, verification |
+| Payments | PayPal Sandbox Orders v2 and Payments v2 | Buyer approval, authorize, capture, void, and read-back. Webhook verification is not implemented. |
 | Hosting | Render or equivalent | Web and vision services, managed PostgreSQL |
 
 **Database hosting:** Supabase is **not required**. Supabase provides hosted PostgreSQL plus optional authentication, storage, and realtime features. SpaceProof initially needs ordinary PostgreSQL only. Use Docker PostgreSQL locally and a managed PostgreSQL provider such as Render for the hosted demo. Do not introduce Supabase Auth or Storage unless an actual requirement appears.
@@ -219,6 +221,7 @@ PAYPAL_CLIENT_SECRET=
 PAYPAL_WEBHOOK_ID=
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=
 VISION_SERVICE_URL=http://localhost:8000
+VISION_SERVICE_TOKEN=
 ```
 
 Copy `vision/.env.example` to `vision/.env`:
@@ -227,9 +230,10 @@ Copy `vision/.env.example` to `vision/.env`:
 NEBIUS_API_KEY=
 NEBIUS_MODEL_ID=nvidia/Nemotron-3.5-Super-VL
 NEBIUS_BASE_URL=https://api.tokenfactory.us-north1.nebius.com/v1
+VISION_SERVICE_TOKEN=
 ```
 
-`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client id. It must be the same app as `PAYPAL_CLIENT_ID`. Never put `PAYPAL_CLIENT_SECRET` or `NEBIUS_API_KEY` in a `NEXT_PUBLIC_` variable. The Nebius key is read only by FastAPI.
+`NEXT_PUBLIC_PAYPAL_CLIENT_ID` is the public sandbox client id. It must be the same app as `PAYPAL_CLIENT_ID`. Never put `PAYPAL_CLIENT_SECRET`, `NEBIUS_API_KEY`, or `VISION_SERVICE_TOKEN` in a `NEXT_PUBLIC_` variable. The Nebius key is read only by FastAPI. The vision token must be the same value on the web service and the vision service. Paid vision routes reject requests that do not send it. `/health` stays public.
 
 Verified on October 28, 2026:
 
@@ -254,7 +258,7 @@ python -m pytest
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-`npx prisma migrate dev` applied `20261028180206_init` and `20261028190753_scene_placement`. `npm run db:seed` loads 12 desks and 4 compact dining tables, including `DESK-NOOK-100` and `DESK-STUDIO-140`. On October 28, 2026, `npm test` passed 69 tests and vision `pytest` passed 20 tests. The hosted vision health check returned OpenCV 5.0.0, `"image_measurement": false`, and model id `nvidia/Nemotron-3.5-Super-VL`.
+`npx prisma migrate dev` applies the migrations in `web/prisma/migrations`, including `20261030120000_api_rate_window`. `npm run db:seed` loads 12 desks and 4 compact dining tables, including `DESK-NOOK-100` and `DESK-STUDIO-140`. On October 30, 2026, `npm test` passed 71 tests, `npx tsc --noEmit` passed, `npm run build` passed, and vision `pytest` passed 28 tests. The hosted vision health check returned OpenCV 5.0.0, `"image_measurement": false`, and model id `nvidia/Nemotron-3.5-Super-VL`. Local Postgres was not running, so `prisma migrate deploy` was not applied on this machine. It was not applied to Render either.
 
 `node_modules` and `vision/.venv` were already present, so `npm install` and virtualenv creation were not repeated on the last run. `pip install -r requirements.txt` installed FastAPI, Uvicorn, OpenCV, pytest, and the OpenAI client used to call Nebius. A fresh clone should still run the full command list above.
 
@@ -281,7 +285,7 @@ Automated tests mock PayPal. They do not prove a live sandbox payment.
 - [x] Mocked tests cover authorization without capture, a single capture, a duplicate capture that does not call PayPal again, void of an uncaptured authorization, and canceled or declined results that are not completed.
 - [x] Two `FIT` assessments created sandbox orders `4JY697996K476130H` and `4T750388D0073720Y`. Both were read back with intent `AUTHORIZE`, status `CREATED`, and amount `USD 129.00`.
 - [x] A sandbox buyer approved a separate FIT order. PayPal order `8NN90589CS658724M` was read back as status `COMPLETED`, intent `AUTHORIZE`, amount `USD 129.00`, reference `DESK-NOOK-100`. Authorization `93V392390C594062Y` is `CAPTURED`. Capture `66M90673NA362091J` is `COMPLETED` and `final_capture: true`. The local ledger is `COMPLETED` for 12900 cents. A second capture request returned the stored capture and did not create another PayPal capture.
-- [ ] Orders `4JY697996K476130H` and `4T750388D0073720Y` are still `CREATED`. Authorizing `4T750388D0073720Y` before approval returned HTTP 409 `NOT_APPROVED`. No live void of an uncaptured authorization has been observed.
+- [ ] On October 30, 2026, orders `4JY697996K476130H` and `4T750388D0073720Y` returned HTTP 404 `INVALID_RESOURCE_ID`. They are no longer `CREATED`. That 404 is not a void. Authorizing `4T750388D0073720Y` before approval had returned HTTP 409 `NOT_APPROVED` on October 28. No live void of an uncaptured authorization has been read back.
 - [ ] Webhooks are not implemented.
 
 ## Evaluation

@@ -2,6 +2,8 @@
 
 Reviewed October 28, 2026 from the repository and from the public URLs. No new PayPal approval was sent.
 
+On October 30, 2026 the in-memory web limiter described below was replaced. The public Next.js routes now count in Postgres (`ApiRateWindow`), and the paid vision routes require `VISION_SERVICE_TOKEN`. See `docs/architecture.md`. The October 28 notes are kept as the record of what was found then.
+
 ## Hosted checks
 
 | Check | Result |

@@ -12,7 +12,7 @@ function reasonCodes(value: unknown): string[] {
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimitedResponse(request, "vision-rank", 20);
+  const limited = await rateLimitedResponse(request, "vision-rank", 20);
   if (limited) return limited;
   let body: unknown;
   try {

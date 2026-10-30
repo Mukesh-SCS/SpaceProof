@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.analysis import analyze_room_image, explain_trusted_products, interpret_shopping_request
+from app.auth import reject_anonymous
 from app.config import read_settings
-from app.images import ImageRejected
+from app.images import ImageRejected, read_capped, reject_declared_length
 from app.limit import allow
 from app.nebius import (
     NebiusConfigError,
@@ -55,6 +56,25 @@ def get_completer() -> VisionCompleter:
     if missing:
         raise NebiusConfigError(missing)
     return NebiusVisionClient(settings)
+
+
+class AuthRejected(Exception):
+    def __init__(self, response: JSONResponse) -> None:
+        self.response = response
+
+
+def authorized_completer(request: Request) -> VisionCompleter:
+    """Check the server token before constructing a Nebius client."""
+    rejected = reject_anonymous(request)
+    if rejected is not None:
+        raise AuthRejected(rejected)
+    factory = app.dependency_overrides.get(get_completer, get_completer)
+    return factory()
+
+
+@app.exception_handler(AuthRejected)
+def auth_rejected(_request: Request, exc: AuthRejected) -> JSONResponse:
+    return exc.response
 
 
 @app.exception_handler(NebiusConfigError)
@@ -130,12 +150,18 @@ def measure() -> None:
 def analyze_room(
     request: Request,
     image: UploadFile = File(...),
-    completer: VisionCompleter = Depends(get_completer),
+    completer: VisionCompleter = Depends(authorized_completer),
 ) -> JSONResponse:
+    too_large = reject_declared_length(request.headers.get("content-length"))
+    if too_large:
+        return JSONResponse(status_code=too_large.status_code, content={"code": too_large.code, "message": too_large.message})
     limited = _limited(request, "analyze")
     if limited:
         return limited
-    data = image.file.read()
+    try:
+        data = read_capped(image.file)
+    except ImageRejected as exc:
+        return JSONResponse(status_code=exc.status_code, content={"code": exc.code, "message": exc.message})
     try:
         analysis, width, height = analyze_room_image(data, image.content_type, image.filename, completer)
     except ImageRejected as exc:
@@ -158,7 +184,7 @@ def analyze_room(
 def interpret_request(
     body: PreferenceBody,
     request: Request,
-    completer: VisionCompleter = Depends(get_completer),
+    completer: VisionCompleter = Depends(authorized_completer),
 ) -> JSONResponse:
     limited = _limited(request, "interpret")
     if limited:
@@ -181,7 +207,7 @@ def interpret_request(
 def rank_products(
     body: RankBody,
     request: Request,
-    completer: VisionCompleter = Depends(get_completer),
+    completer: VisionCompleter = Depends(authorized_completer),
 ) -> JSONResponse:
     limited = _limited(request, "rank")
     if limited:

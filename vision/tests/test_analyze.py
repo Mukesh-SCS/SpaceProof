@@ -52,9 +52,12 @@ def room_json(**overrides: object) -> str:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("VISION_SERVICE_TOKEN", "vision-test-token")
     app.dependency_overrides.clear()
-    yield TestClient(app)
+    test_client = TestClient(app)
+    test_client.headers.update({"Authorization": "Bearer vision-test-token"})
+    yield test_client
     app.dependency_overrides.clear()
 
 

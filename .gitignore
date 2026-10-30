@@ -221,6 +221,9 @@ __marimo__/
 
 # Node / Next.js
 node_modules/
+web/test-results/
+web/playwright-report/
+web/.next/
 
 # Environment files with secrets. Examples stay tracked.
 .env.*

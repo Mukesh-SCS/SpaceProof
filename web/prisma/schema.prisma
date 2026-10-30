@@ -148,3 +148,11 @@ enum LedgerStatus {
   CANCELED
   FAILED
 }
+
+/// Shared request window for the public Next.js routes. One row per address and route.
+model ApiRateWindow {
+  key       String   @id
+  count     Int
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}

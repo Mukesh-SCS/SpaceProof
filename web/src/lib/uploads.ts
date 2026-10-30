@@ -18,9 +18,10 @@ export function rejectRoomUpload(file: { size: number; type: string }): { status
 }
 
 export function rejectDeclaredBody(contentLength: string | null): { status: number; message: string } | null {
-  if (!contentLength) return null;
+  if (!contentLength || !/^\d+$/.test(contentLength)) {
+    return { status: 411, message: "The upload must include a content length." };
+  }
   const declared = Number(contentLength);
-  if (!Number.isFinite(declared)) return null;
   if (declared > MAX_IMAGE_BYTES + 64 * 1024) {
     return { status: 413, message: "The photograph is larger than 8 MB." };
   }

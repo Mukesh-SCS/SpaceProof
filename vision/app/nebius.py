@@ -93,9 +93,10 @@ def missing_settings(settings: Settings) -> list[str]:
 def public_provider_error(exc: Exception, secret: str) -> str:
     status = getattr(exc, "status_code", None)
     detail = getattr(exc, "message", None)
-    text = str(detail or exc.__class__.__name__)
+    text = str(detail or exc)
     if secret:
         text = text.replace(secret, "[redacted]")
+        text = str(exc).replace(secret, "[redacted]") if secret in str(exc) else text
     text = " ".join(text.split())[:240]
     if status:
         return f"Nebius returned HTTP {status}. {text}"
